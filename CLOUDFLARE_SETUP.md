@@ -11,20 +11,7 @@ This project is now configured for deployment on Cloudflare Pages instead of Net
 
 ## Setup Steps
 
-### 1. Install Wrangler CLI (Optional - for local testing)
-
-```bash
-npm install -g @cloudflare/wrangler
-```
-
-### 2. Configure wrangler.toml
-
-Update the `wrangler.toml` file with your Cloudflare details:
-- `account_id`: Your Cloudflare Account ID (found in Workers & Pages dashboard)
-- `zone_id`: Your domain zone ID (if using custom domain)
-- Update `route` with your domain
-
-### 3. Deploy to Cloudflare Pages
+### 1. Deploy to Cloudflare Pages
 
 #### Option A: GitHub Integration (Recommended)
 
@@ -44,23 +31,9 @@ Update the `wrangler.toml` file with your Cloudflare details:
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key
 8. Click **Save and Deploy**
 
-#### Option B: Using Wrangler Pages CLI
 
-```bash
-# Build locally
-npm run build
-
-# Login to Cloudflare (first time only)
-npx wrangler login
-
-# Deploy to Pages
-npx wrangler pages deploy dist
-```
 
 ## Configuration Files
-
-### wrangler.toml
-Main configuration file for Cloudflare Pages. Update with your account details.
 
 ### _redirects
 Handles SPA routing - all requests are redirected to index.html for React Router to handle.
