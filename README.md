@@ -1,6 +1,6 @@
 # Daily Activities Tracker
 
-A modern React web application for tracking daily work activities with complete CRUD functionality. Built with React, TypeScript, Supabase, and hosted on Netlify.
+A modern React web application for tracking daily work activities with complete CRUD functionality. Built with React, TypeScript, Supabase, and hosted on Cloudflare Pages.
 
 ## Features
 
@@ -18,7 +18,7 @@ A modern React web application for tracking daily work activities with complete 
 - **Build Tool:** Vite
 - **Database:** Supabase (PostgreSQL)
 - **Styling:** CSS3 with responsive design
-- **Deployment:** Netlify
+- **Deployment:** Cloudflare Pages
 - **Environment:** Node.js 18+
 
 ## Prerequisites
@@ -27,7 +27,7 @@ Before getting started, ensure you have:
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
 - A [Supabase](https://supabase.com/) account (free tier available)
-- A [Netlify](https://www.netlify.com/) account (free tier available)
+- A [Cloudflare](https://www.cloudflare.com/) account (free tier available)
 - Git installed
 
 ## Setup Instructions
@@ -126,23 +126,28 @@ Preview the production build locally:
 npm run preview
 ```
 
-## Deployment to Netlify
+## Deployment to Cloudflare Pages
 
-### Option 1: Using Netlify CLI
+### Option 1: Using Wrangler CLI
 
-1. Install Netlify CLI:
+1. Install Wrangler CLI:
    ```bash
-   npm install -g netlify-cli
+   npm install -g @cloudflare/wrangler
    ```
 
-2. Build the project:
+2. Login to Cloudflare:
+   ```bash
+   wrangler login
+   ```
+
+3. Build the project:
    ```bash
    npm run build
    ```
 
-3. Deploy:
+4. Deploy:
    ```bash
-   netlify deploy --prod
+   wrangler pages deploy dist
    ```
 
 ### Option 2: Connect GitHub Repository (Recommended)
@@ -153,22 +158,22 @@ npm run preview
    git add .
    git commit -m "Initial commit"
    git branch -M main
-   git remote add origin https://github.com/minaqaldas-droid/daily_activities_tracker
+   git remote add origin https://github.com/your-username/daily_activities_tracker
    git push -u origin main
    ```
 
-2. Go to [Netlify](https://www.netlify.com/)
-3. Click **New site from Git**
-4. Connect your GitHub account and select the repository
-5. Set Build settings:
+2. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
+3. Navigate to **Workers & Pages** → **Pages**
+4. Click **Create application** → **Connect to Git**
+5. Select your GitHub repository
+6. Set Build settings:
    - **Build command:** `npm run build`
-   - **Publish directory:** `dist`
-6. Add environment variables in Netlify:
-   - Go to **Site settings** → **Build & deploy** → **Environment**
-   - Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-7. Click **Deploy**
+   - **Build output directory:** `dist`
+7. Add environment variables:
+   - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+8. Click **Save and Deploy**
 
-Your site will be live at `your-site-name.netlify.app`
+Your site will be live at `your-project-name.pages.dev`
 
 ## Project Structure
 
@@ -187,7 +192,9 @@ daily-activities-tracker/
 ├── package.json                  # Dependencies
 ├── vite.config.ts               # Vite configuration
 ├── tsconfig.json                # TypeScript configuration
-├── netlify.toml                 # Netlify deployment config
+├── wrangler.toml                # Cloudflare deployment config
+├── _redirects                   # SPA routing configuration
+├── CLOUDFLARE_SETUP.md          # Cloudflare deployment guide
 ├── .env.example                 # Environment variables template
 └── .gitignore                   # Git ignore rules
 ```

@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react'
 import { Activity } from '../supabaseClient'
 
+const SYSTEMS = [
+  'DCS',
+  'ESD',
+  'FGS',
+  'ACCS',
+  'LCS',
+  '200K1A',
+  '200K1B',
+  '200K2A',
+  '200K2B',
+  '400K1',
+  '923K1A',
+  '923K1B',
+  '923K1C',
+  'Demi',
+  'Sanitary',
+  'Steam Boiler',
+  'Air Dryer A/B',
+  'Air Dryer C/D',
+  '400CEMS',
+]
+
 interface ActivityFormProps {
   onSubmit: (activity: Activity) => Promise<void>
   initialData?: Activity
@@ -15,6 +37,8 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   const [formData, setFormData] = useState<Activity>({
     date: new Date().toISOString().split('T')[0],
     performer: '',
+    system: '',
+    instrument: '',
     problem: '',
     action: '',
     comments: '',
@@ -27,7 +51,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   }, [initialData])
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
     setFormData((prev) => ({
@@ -43,6 +67,8 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
       setFormData({
         date: new Date().toISOString().split('T')[0],
         performer: '',
+        system: '',
+        instrument: '',
         problem: '',
         action: '',
         comments: '',
@@ -73,6 +99,39 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           value={formData.performer}
           onChange={handleChange}
           placeholder="Enter performer name"
+          required
+          disabled={formData.performer === '' ? false : true}
+        />
+        <small className="form-hint">Your name will be auto-filled when logged in</small>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="system">System *</label>
+        <select
+          id="system"
+          name="system"
+          value={formData.system}
+          onChange={handleChange}
+          required
+        >
+          <option value="">-- Select System --</option>
+          {SYSTEMS.map((sys) => (
+            <option key={sys} value={sys}>
+              {sys}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="instrument">Instrument/Tag *</label>
+        <input
+          type="text"
+          id="instrument"
+          name="instrument"
+          value={formData.instrument}
+          onChange={handleChange}
+          placeholder="e.g., Machine A, Tool #123, Device X"
           required
         />
       </div>
@@ -128,6 +187,8 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
               setFormData({
                 date: new Date().toISOString().split('T')[0],
                 performer: '',
+                system: '',
+                instrument: '',
                 problem: '',
                 action: '',
                 comments: '',

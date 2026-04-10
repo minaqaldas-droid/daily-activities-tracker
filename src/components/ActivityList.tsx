@@ -39,6 +39,16 @@ export const ActivityList: React.FC<ActivityListProps> = ({
           </div>
 
           <div className="activity-detail">
+            <strong>System:</strong>
+            <span className="system-badge">{activity.system}</span>
+          </div>
+
+          <div className="activity-detail">
+            <strong>Instrument/Tag:</strong> 
+            <span className="instrument-tag">{activity.instrument}</span>
+          </div>
+
+          <div className="activity-detail">
             <strong>Problem:</strong>
             <p>{activity.problem}</p>
           </div>
@@ -52,6 +62,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             <div className="activity-detail">
               <strong>Comments:</strong>
               <p>{activity.comments}</p>
+            </div>
+          )}
+
+          {activity.editedBy && (
+            <div className="activity-detail edited-info">
+              <strong>✏️ Edited by:</strong> {activity.editedBy}
             </div>
           )}
 
