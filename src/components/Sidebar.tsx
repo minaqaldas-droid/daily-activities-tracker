@@ -3,8 +3,8 @@ import { User } from '../supabaseClient'
 
 interface SidebarProps {
   currentUser: User
-  currentView: 'dashboard' | 'add' | 'search'
-  onViewChange: (view: 'dashboard' | 'add' | 'search') => void
+  currentView: 'dashboard' | 'add' | 'edit' | 'search'
+  onViewChange: (view: 'dashboard' | 'add' | 'edit' | 'search') => void
   onSettingsClick: () => void
   onAdminClick: () => void
   onLogout: () => void
@@ -49,6 +49,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <span className="nav-icon">➕</span>
             <span className="nav-text">Add Activity</span>
+          </button>
+          <button
+            className={`nav-item ${currentView === 'edit' ? 'active' : ''}`}
+            onClick={() => onViewChange('edit')}
+          >
+            <span className="nav-icon">📝</span>
+            <span className="nav-text">Edit Activity</span>
           </button>
           <button
             className={`nav-item ${currentView === 'search' ? 'active' : ''}`}

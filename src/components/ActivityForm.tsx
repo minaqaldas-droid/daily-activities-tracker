@@ -63,16 +63,18 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await onSubmit(formData)
-    // Always reset form after submit
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      performer: '',
-      system: '',
-      instrument: '',
-      problem: '',
-      action: '',
-      comments: '',
-    })
+    // Only reset form when adding new activity (not editing)
+    if (!initialData) {
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        performer: '',
+        system: '',
+        instrument: '',
+        problem: '',
+        action: '',
+        comments: '',
+      })
+    }
   }
 
   return (
@@ -99,7 +101,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           onChange={handleChange}
           placeholder="Enter performer name"
           required
-          disabled={formData.performer === '' ? false : true}
+          disabled={!initialData && formData.performer === ''}
         />
         <small className="form-hint">Your name will be auto-filled when logged in</small>
       </div>

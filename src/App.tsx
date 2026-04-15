@@ -31,7 +31,7 @@ function App() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingData, setEditingData] = useState<Activity | undefined>(undefined)
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add' | 'search'>('dashboard')
+  const [currentView, setCurrentView] = useState<'dashboard' | 'add' | 'edit' | 'search'>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false)
   const [searchApplied, setSearchApplied] = useState(false)
@@ -91,10 +91,15 @@ function App() {
     try {
       setIsLoading(true)
       if (editingId) {
-        // When editing, keep original performer and add editedBy
-        const updateData: Partial<Activity> = {
-          ...activity,
+        // When editing, only update fields that should be changed (exclude id, created_at)
+        const updateData = {
+          date: activity.date,
           performer: editingData?.performer || activity.performer,
+          system: activity.system,
+          instrument: activity.instrument,
+          problem: activity.problem,
+          action: activity.action,
+          comments: activity.comments,
           editedBy: currentUser?.name,
         }
         await updateActivity(editingId, updateData)
@@ -113,11 +118,12 @@ function App() {
       }
       await loadActivities()
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setMessage({
         type: 'error',
-        text: editingId ? 'Failed to update activity' : 'Failed to add activity',
+        text: editingId ? `Failed to update activity: ${errorMessage}` : `Failed to add activity: ${errorMessage}`,
       })
-      console.error(error)
+      console.error('Full error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -126,7 +132,7 @@ function App() {
   const handleEditActivity = (activity: Activity) => {
     setEditingId(activity.id!)
     setEditingData(activity)
-    setCurrentView('add')
+    setCurrentView('edit')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -295,6 +301,51 @@ function App() {
               </div>
             </>
           )}
+
+          {/* Edit Activity View */}
+          {currentView === 'edit' && editingId && editingData ? (
+            <>
+              <div className="form-section">
+                <h2>✏️ Edit Activity</h2>
+                <ActivityForm
+                  onSubmit={handleAddOrUpdateActivity}
+                  initialData={editingData}
+                  isLoading={isLoading}
+                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setEditingId(null)
+                    setEditingData(undefined)
+                    setCurrentView('dashboard')
+                  }}
+                  style={{ marginTop: '10px' }}
+                >
+                  ← Back to Dashboard
+                </button>
+              </div>
+
+              <div className="list-section">
+                <h2>📝 All Activities</h2>
+                <ActivityList
+                  activities={activities}
+                  onEdit={handleEditActivity}
+                  onDelete={handleDeleteActivity}
+                  isLoading={isLoading}
+                />
+              </div>
+            </>
+          ) : currentView === 'edit' ? (
+            <div className="empty-state">
+              <p>No activity selected for editing. Please edit an activity from the Dashboard or Search.</p>
+              <button
+                className="btn btn-primary"
+                onClick={() => setCurrentView('dashboard')}
+              >
+                ← Go to Dashboard
+              </button>
+            </div>
+          ) : null}
 
           {/* Search Activity View */}
           {currentView === 'search' && (

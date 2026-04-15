@@ -79,10 +79,15 @@ export async function updateActivity(id: string, activity: Partial<Activity>) {
       .eq('id', id)
       .select()
 
-    if (error) throw error
+    if (error) {
+      const errorMsg = error.message || JSON.stringify(error)
+      console.error('Supabase update error details:', errorMsg)
+      throw new Error(`Update failed: ${errorMsg}`)
+    }
     return data?.[0]
   } catch (error) {
-    console.error('Error updating activity:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('Error updating activity:', message)
     throw error
   }
 }
