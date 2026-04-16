@@ -27,12 +27,16 @@ interface ActivityFormProps {
   onSubmit: (activity: Activity) => Promise<void>
   initialData?: Activity
   isLoading?: boolean
+  performerMode?: 'manual' | 'auto'
+  currentUserName?: string
 }
 
 export const ActivityForm: React.FC<ActivityFormProps> = ({
   onSubmit,
   initialData,
   isLoading = false,
+  performerMode = 'manual',
+  currentUserName = '',
 }) => {
   const [formData, setFormData] = useState<Activity>({
     date: new Date().toISOString().split('T')[0],
@@ -47,8 +51,14 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   useEffect(() => {
     if (initialData) {
       setFormData(initialData)
+    } else if (performerMode === 'auto' && currentUserName && !formData.performer) {
+      // Auto-fill performer name when in auto mode
+      setFormData((prev) => ({
+        ...prev,
+        performer: currentUserName,
+      }))
     }
-  }, [initialData])
+  }, [initialData, performerMode, currentUserName])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -101,9 +111,13 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           onChange={handleChange}
           placeholder="Enter performer name"
           required
-          disabled={!initialData && formData.performer === ''}
+          disabled={performerMode === 'auto'}
         />
-        <small className="form-hint">Your name will be auto-filled when logged in</small>
+        <small className="form-hint">
+          {performerMode === 'auto'
+            ? '🔐 Auto-filled from your account'
+            : 'Your name will be auto-filled when logged in'}
+        </small>
       </div>
 
       <div className="form-group">

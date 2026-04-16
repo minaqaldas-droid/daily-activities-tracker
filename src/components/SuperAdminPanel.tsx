@@ -3,6 +3,7 @@ import { User, Settings, getSettings, updateSettings } from '../supabaseClient'
 
 interface SuperAdminPanelProps {
   user: User
+  currentSettings: Settings
   onClose: () => void
   onSettingsUpdate: (settings: Settings) => void
   isLoading?: boolean
@@ -10,6 +11,7 @@ interface SuperAdminPanelProps {
 
 export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
   user,
+  currentSettings,
   onClose,
   onSettingsUpdate,
   isLoading = false,
@@ -17,6 +19,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
   const [webappName, setWebappName] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [primaryColor, setPrimaryColor] = useState('#667eea')
+  const [performerMode, setPerformerMode] = useState<'manual' | 'auto'>('manual')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -25,23 +28,17 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0)
 
   useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const loadSettings = async () => {
-    try {
-      const settings = await getSettings()
-      setWebappName(settings.webapp_name || 'Daily Activities Tracker')
-      setLogoUrl(settings.logo_url || '')
-      setPrimaryColor(settings.primary_color || '#667eea')
-      if (settings.logo_url) {
-        setPreviewUrl(settings.logo_url)
+    // Initialize with current settings passed from parent
+    if (currentSettings) {
+      setWebappName(currentSettings.webapp_name || 'Daily Activities Tracker')
+      setLogoUrl(currentSettings.logo_url || '')
+      setPrimaryColor(currentSettings.primary_color || '#667eea')
+      setPerformerMode(currentSettings.performer_mode || 'manual')
+      if (currentSettings.logo_url) {
+        setPreviewUrl(currentSettings.logo_url)
       }
-    } catch (err) {
-      setError('Failed to load current settings')
-      console.error(err)
     }
-  }
+  }, [currentSettings])
 
   const handleLogoUrlChange = (url: string) => {
     setLogoUrl(url)
@@ -120,6 +117,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
           webapp_name: webappName.trim(),
           logo_url: logoUrl.trim(),
           primary_color: primaryColor,
+          performer_mode: performerMode,
         },
         user.id || ''
       )
@@ -256,6 +254,41 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
               />
             </div>
             <span className="form-hint">Used for buttons, links, and highlighting</span>
+          </div>
+
+          <div className="form-group">
+            <label>Performer Name Handling</label>
+            <div className="radio-group">
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="performer-mode"
+                  value="manual"
+                  checked={performerMode === 'manual'}
+                  onChange={() => setPerformerMode('manual')}
+                  disabled={isSubmitting || isLoading}
+                />
+                <span className="radio-label">
+                  <strong>👤 Manual Entry</strong> - Users can enter performer name manually
+                </span>
+              </label>
+              <label className="radio-option">
+                <input
+                  type="radio"
+                  name="performer-mode"
+                  value="auto"
+                  checked={performerMode === 'auto'}
+                  onChange={() => setPerformerMode('auto')}
+                  disabled={isSubmitting || isLoading}
+                />
+                <span className="radio-label">
+                  <strong>🔐 Auto-assign</strong> - Auto-fill with logged-in username
+                </span>
+              </label>
+            </div>
+            <span className="form-hint">
+              Choose whether users can manually enter their name or it's auto-filled from their account
+            </span>
           </div>
 
           <div className="form-group">

@@ -32,6 +32,7 @@ export interface Settings {
   webapp_name: string
   logo_url: string
   primary_color?: string
+  performer_mode?: 'manual' | 'auto'
   updated_at?: string
   updated_by?: string
 }

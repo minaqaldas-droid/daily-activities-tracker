@@ -41,6 +41,7 @@ function App() {
     webapp_name: 'Daily Activities Tracker',
     logo_url: '',
     primary_color: '#667eea',
+    performer_mode: 'manual',
   })
 
   useEffect(() => {
@@ -72,6 +73,13 @@ function App() {
       return () => clearTimeout(timer)
     }
   }, [message])
+
+  useEffect(() => {
+    // Apply primary color to document root
+    if (settings.primary_color) {
+      document.documentElement.style.setProperty('--primary-color', settings.primary_color)
+    }
+  }, [settings.primary_color])
 
   const loadActivities = async () => {
     try {
@@ -243,6 +251,7 @@ function App() {
         {showSuperAdminPanel && currentUser.role === 'superadmin' && (
           <SuperAdminPanel
             user={currentUser}
+            currentSettings={settings}
             onClose={() => setShowSuperAdminPanel(false)}
             onSettingsUpdate={(newSettings) => {
               setSettings(newSettings)
@@ -277,6 +286,8 @@ function App() {
                   onSubmit={handleAddOrUpdateActivity}
                   initialData={editingData}
                   isLoading={isLoading}
+                  performerMode={settings.performer_mode || 'manual'}
+                  currentUserName={currentUser?.name}
                 />
                 {editingId && (
                   <button
@@ -313,6 +324,8 @@ function App() {
                   onSubmit={handleAddOrUpdateActivity}
                   initialData={editingData}
                   isLoading={isLoading}
+                  performerMode={settings.performer_mode || 'manual'}
+                  currentUserName={currentUser?.name}
                 />
                 <button
                   className="btn btn-secondary"
