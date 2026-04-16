@@ -1813,4 +1813,262 @@ body {
   }
 }
 
+/* ============================================
+   EXCEL IMPORT/EXPORT STYLES
+   ============================================ */
+.excel-import-container,
+.excel-export-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.excel-import-section,
+.excel-export-section {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.excel-import-section h3,
+.excel-export-section h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.4rem;
+}
+
+.excel-hint {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.excel-input-group {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.file-input {
+  display: none;
+}
+
+#excel-file-input + .btn {
+  cursor: pointer;
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 6px;
+}
+
+.import-progress {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.progress-text {
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.excel-template-hint {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f9f9f9;
+  border-left: 4px solid #667eea;
+  border-radius: 6px;
+}
+
+.excel-template-hint p {
+  color: #333;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.template-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.template-table th {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.template-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.template-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Export Options */
+.export-options {
+  margin-bottom: 25px;
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.export-option {
+  margin-bottom: 15px;
+}
+
+.export-option label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+}
+
+.export-option input[type="radio"] {
+  margin-right: 12px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.date-range-inputs {
+  margin-top: 15px;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.date-input-group {
+  margin-bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.date-input-group label {
+  font-weight: 500;
+  color: #333;
+  min-width: 100px;
+}
+
+.date-input-group input[type="date"] {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.date-input-group input[type="date"]:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-range-info {
+  margin-top: 10px;
+  color: #667eea;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+/* Responsive Excel Components */
+@media (max-width: 768px) {
+  .excel-import-section,
+  .excel-export-section {
+    padding: 20px;
+  }
+
+  .excel-import-section h3,
+  .excel-export-section h3 {
+    font-size: 1.2rem;
+  }
+
+  .excel-template-hint {
+    overflow-x: auto;
+  }
+
+  .template-table {
+    font-size: 0.85rem;
+  }
+
+  .template-table th,
+  .template-table td {
+    padding: 10px 8px;
+  }
+
+  .date-input-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .date-input-group label {
+    min-width: auto;
+  }
+
+  .date-input-group input[type="date"] {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .excel-import-section,
+  .excel-export-section {
+    padding: 15px;
+  }
+
+  .excel-import-section h3,
+  .excel-export-section h3 {
+    font-size: 1.1rem;
+  }
+
+  .template-table {
+    font-size: 0.8rem;
+  }
+
+  .template-table th,
+  .template-table td {
+    padding: 8px 6px;
+  }
+
+  #excel-file-input + .btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
 

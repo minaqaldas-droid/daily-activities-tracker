@@ -3,8 +3,8 @@ import { User } from '../supabaseClient'
 
 interface SidebarProps {
   currentUser: User
-  currentView: 'dashboard' | 'add' | 'edit' | 'search'
-  onViewChange: (view: 'dashboard' | 'add' | 'edit' | 'search') => void
+  currentView: 'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'
+  onViewChange: (view: 'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export') => void
   onSettingsClick: () => void
   onAdminClick: () => void
   onLogout: () => void
@@ -63,6 +63,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <span className="nav-icon">🔍</span>
             <span className="nav-text">Search</span>
+          </button>
+        </div>
+
+        <div className="nav-section">
+          <h3 className="nav-section-title">Import/Export</h3>
+          <button
+            className={`nav-item ${currentView === 'import' ? 'active' : ''}`}
+            onClick={() => onViewChange('import')}
+          >
+            <span className="nav-icon">📤</span>
+            <span className="nav-text">Import Excel</span>
+          </button>
+          <button
+            className={`nav-item ${currentView === 'export' ? 'active' : ''}`}
+            onClick={() => onViewChange('export')}
+          >
+            <span className="nav-icon">📥</span>
+            <span className="nav-text">Export Excel</span>
           </button>
         </div>
 

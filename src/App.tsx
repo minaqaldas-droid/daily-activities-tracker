@@ -6,6 +6,8 @@ import { Dashboard } from './components/Dashboard'
 import { AccountSettings } from './components/AccountSettings'
 import { SuperAdminPanel } from './components/SuperAdminPanel'
 import { SearchFilter } from './components/SearchFilter'
+import { ExcelImport } from './components/ExcelImport'
+import { ExcelExport } from './components/ExcelExport'
 import { Sidebar } from './components/Sidebar'
 import {
   Activity,
@@ -31,7 +33,7 @@ function App() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingData, setEditingData] = useState<Activity | undefined>(undefined)
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add' | 'edit' | 'search'>('dashboard')
+  const [currentView, setCurrentView] = useState<'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false)
   const [searchApplied, setSearchApplied] = useState(false)
@@ -370,6 +372,35 @@ function App() {
                 />
               </div>
             </>
+          )}
+
+          {/* Import Excel View */}
+          {currentView === 'import' && (
+            <ExcelImport
+              onImportSuccess={(count) => {
+                setMessage({
+                  type: 'success',
+                  text: `Successfully imported ${count} activities!`,
+                })
+                loadActivities()
+              }}
+              onImportError={(error) => {
+                setMessage({
+                  type: 'error',
+                  text: `Import failed: ${error}`,
+                })
+              }}
+              isLoading={isLoading}
+              currentUserName={currentUser?.name}
+            />
+          )}
+
+          {/* Export Excel View */}
+          {currentView === 'export' && (
+            <ExcelExport
+              activities={activities}
+              isLoading={isLoading}
+            />
           )}
         </div>
       </div>
