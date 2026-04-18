@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Activity } from '../supabaseClient'
+import { formatDateForDisplay } from '../utils/date'
 
 interface ActivityListProps {
   activities: Activity[]
@@ -70,7 +71,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                   style={{ cursor: activity.comments ? 'pointer' : 'default' }}
                 >
                   <td className="col-date">
-                    <span className="date-badge">{activity.date}</span>
+                    <span className="date-badge">{formatDateForDisplay(activity.date)}</span>
                   </td>
                   <td className="col-performer">{activity.performer}</td>
                   <td className="col-system">

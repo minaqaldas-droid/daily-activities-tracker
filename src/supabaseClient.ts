@@ -6,6 +6,7 @@ import {
   type User as SupabaseAuthUser,
   type UserAttributes,
 } from '@supabase/supabase-js'
+import { formatDateForDisplay, normalizeDateForApp } from './utils/date'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -231,7 +232,7 @@ function getFormattedActivity(activity: Activity) {
 function normalizeActivity(activity: Partial<Activity>): Activity {
   return {
     id: activity.id,
-    date: activity.date ?? '',
+    date: normalizeDateForApp(activity.date),
     performer: activity.performer ?? '',
     system: activity.system ?? '',
     tag: activity.tag ?? '',
@@ -656,6 +657,7 @@ export async function searchActivities(filters: SearchFilters) {
       results = results.filter((activity) =>
         [
           activity.date,
+          formatDateForDisplay(activity.date),
           activity.performer,
           activity.system,
           activity.tag,

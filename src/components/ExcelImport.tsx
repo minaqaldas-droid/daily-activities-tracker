@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { type Activity, createActivities, createActivity } from '../supabaseClient'
+import { parseImportedDate } from '../utils/date'
 
 interface ExcelImportProps {
   onImportSuccess: (result: ExcelImportResult) => void
@@ -16,32 +17,6 @@ type ParsedWorksheetRow = Record<string, unknown>
 type MergeRange = { s: { r: number; c: number }; e: { r: number; c: number } }
 
 const IMPORT_CHUNK_SIZE = 100
-const MONTH_LOOKUP: Record<string, number> = {
-  jan: 1,
-  january: 1,
-  feb: 2,
-  february: 2,
-  mar: 3,
-  march: 3,
-  apr: 4,
-  april: 4,
-  may: 5,
-  jun: 6,
-  june: 6,
-  jul: 7,
-  july: 7,
-  aug: 8,
-  august: 8,
-  sep: 9,
-  sept: 9,
-  september: 9,
-  oct: 10,
-  october: 10,
-  nov: 11,
-  november: 11,
-  dec: 12,
-  december: 12,
-}
 
 const COLUMN_ALIASES = {
   date: ['date', 'activitydate', 'workdate'],
@@ -53,10 +28,6 @@ const COLUMN_ALIASES = {
   comments: ['comments', 'comment', 'remarks', 'remark', 'notes', 'note', 'observations', 'observation'],
 } as const
 
-function formatDateParts(year: number, month: number, day: number) {
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : String(value ?? '').trim()
 }
@@ -65,70 +36,8 @@ function normalizeColumnKey(value: unknown) {
   return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function normalizeTwoDigitYear(year: number) {
-  return year >= 70 ? 1900 + year : 2000 + year
-}
-
-function createDateString(year: number, month: number, day: number) {
-  const candidate = new Date(Date.UTC(year, month - 1, day))
-
-  if (
-    candidate.getUTCFullYear() !== year ||
-    candidate.getUTCMonth() !== month - 1 ||
-    candidate.getUTCDate() !== day
-  ) {
-    return ''
-  }
-
-  return formatDateParts(year, month, day)
-}
-
 function normalizeDate(value: unknown) {
-  const text = normalizeText(value)
-  if (!text) {
-    return ''
-  }
-
-  const mmDashDdDashYy = text.match(/^(\d{1,2})-(\d{1,2})-(\d{2})$/)
-  if (mmDashDdDashYy) {
-    return createDateString(
-      normalizeTwoDigitYear(Number(mmDashDdDashYy[3])),
-      Number(mmDashDdDashYy[1]),
-      Number(mmDashDdDashYy[2])
-    )
-  }
-
-  // Excel-formatted date cells in the user's workbook are displayed like 2/1/26, 4/1/26, etc.
-  // Treat two-digit year slash dates as M/D/YY so real Excel date cells import correctly.
-  const mmSlashDdSlashYy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
-  if (mmSlashDdSlashYy) {
-    return createDateString(
-      normalizeTwoDigitYear(Number(mmSlashDdSlashYy[3])),
-      Number(mmSlashDdSlashYy[1]),
-      Number(mmSlashDdSlashYy[2])
-    )
-  }
-
-  const ddSlashMmSlashYyyy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (ddSlashMmSlashYyyy) {
-    return createDateString(
-      Number(ddSlashMmSlashYyyy[3]),
-      Number(ddSlashMmSlashYyyy[2]),
-      Number(ddSlashMmSlashYyyy[1])
-    )
-  }
-
-  const ddMonthNameYyyy = text.match(/^(\d{1,2})-([A-Za-z]{3,9})-(\d{4})$/)
-  if (ddMonthNameYyyy) {
-    const month = MONTH_LOOKUP[ddMonthNameYyyy[2].toLowerCase()]
-    if (!month) {
-      return ''
-    }
-
-    return createDateString(Number(ddMonthNameYyyy[3]), month, Number(ddMonthNameYyyy[1]))
-  }
-
-  return ''
+  return parseImportedDate(value)
 }
 
 function getChunk<T>(items: T[], size: number) {
@@ -171,6 +80,29 @@ function isCompletelyEmptyRow(row: ParsedWorksheetRow) {
   return Object.values(row).every((value) => normalizeText(value) === '')
 }
 
+function getWorksheetDisplayRows(
+  worksheet: Record<string, unknown>,
+  XLSX: Awaited<typeof import('xlsx')>
+) {
+  const reference = typeof worksheet['!ref'] === 'string' ? worksheet['!ref'] : 'A1:A1'
+  const range = XLSX.utils.decode_range(reference)
+  const rows: unknown[][] = []
+
+  for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex += 1) {
+    const row: unknown[] = []
+
+    for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
+      const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })
+      const cell = worksheet[address] as { w?: unknown; v?: unknown } | undefined
+      row.push(cell?.w ?? cell?.v ?? '')
+    }
+
+    rows.push(row)
+  }
+
+  return rows
+}
+
 export const ExcelImport: React.FC<ExcelImportProps> = ({
   onImportSuccess,
   onImportError,
@@ -197,12 +129,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       const XLSX = await import('xlsx')
       const workbook = XLSX.read(workbookData, { type: 'array', cellDates: false })
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rawRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: false,
-      })
+      const rawRows = getWorksheetDisplayRows(worksheet as Record<string, unknown>, XLSX)
 
       if (rawRows.length <= 1) {
         onImportError('Excel file is empty or has no data rows.')
@@ -314,9 +241,10 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       <div className="excel-import-section">
         <h3>Import Activities from Excel</h3>
         <p className="excel-hint">
-          Upload an Excel file to bulk import activities. The `Date` column accepts only
-          `MM-DD-YY`, `M/D/YY` Excel-style dates, `DD/MM/YYYY`, and month-name entries like
-          `14-Apr-2016`. Merged cells are carried down to all rows inside the merged range.
+          Upload an Excel file to bulk import activities. Dates are normalized from values like
+          `3-Apr-2026`, numeric hyphen dates like `04-03-26` using `M-D-Y`, and numeric slash
+          dates like `03/04/2026` using `D/M/Y`. Merged cells are carried down to all rows inside
+          the merged range.
         </p>
 
         <div className="excel-input-group">
@@ -359,7 +287,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
             </thead>
             <tbody>
               <tr>
-                <td>04-14-16</td>
+                <td>3-Apr-2026</td>
                 <td>Ahmed Mohamed</td>
                 <td>DCS</td>
                 <td>920TT305</td>
@@ -368,7 +296,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>Now Normal</td>
               </tr>
               <tr>
-                <td>2/1/26</td>
+                <td>4-3-26</td>
                 <td></td>
                 <td>LCS</td>
                 <td>LCS Alarm</td>
@@ -377,7 +305,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td></td>
               </tr>
               <tr>
-                <td>14/04/2016</td>
+                <td>03/04/2026</td>
                 <td></td>
                 <td>DCS</td>
                 <td>920TT305</td>
@@ -386,12 +314,12 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td></td>
               </tr>
               <tr>
-                <td>14-Apr-2016</td>
+                <td>04-03-2026</td>
                 <td>Sara Ali</td>
                 <td>PLC</td>
-                <td>FY-210</td>
+                <td>200FIC310</td>
                 <td>Valve response delay</td>
-                <td>Tuned positioner</td>
+                <td>Tuning was made</td>
                 <td>Monitor next shift</td>
               </tr>
             </tbody>
