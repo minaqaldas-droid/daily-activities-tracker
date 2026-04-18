@@ -241,9 +241,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       <div className="excel-import-section">
         <h3>Import Activities from Excel</h3>
         <p className="excel-hint">
-          Upload an Excel file to bulk import activities. Dates are normalized from values like
-          `3-Apr-2026`, numeric hyphen dates like `04-03-26` using `M-D-Y`, and numeric slash
-          dates like `03/04/2026` using `D/M/Y`. Merged cells are carried down to all rows inside
+          Upload an Excel file to bulk import activities. Merged cells are carried down to all rows inside
           the merged range.
         </p>
 
