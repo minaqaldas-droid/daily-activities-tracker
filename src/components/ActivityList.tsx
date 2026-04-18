@@ -98,7 +98,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         disabled={isLoading}
                         title="Edit activity"
                       >
-                        Edit
+                        ✏️
                       </button>
                       <button
                         type="button"
@@ -116,7 +116,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                             : 'Only Super Admin users can delete activities'
                         }
                       >
-                        Delete
+                        🗑️
                       </button>
                     </div>
                   </td>

@@ -1787,7 +1787,8 @@ body {
 
 .activities-table th {
   padding: 16px 12px;
-  text-align: left;
+  text-align: center;
+  vertical-align: middle;
   font-weight: 600;
   border: none;
   white-space: normal;
@@ -1811,7 +1812,7 @@ body {
 }
 
 .col-date {
-  width: 100px;
+  width: 120px;
 }
 
 .col-performer {
@@ -1864,6 +1865,11 @@ body {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.col-date .date-badge {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .activities-table td.col-actions {
@@ -1941,7 +1947,7 @@ body {
   }
 
   .col-date {
-    width: 90px;
+    width: 110px;
   }
 
   .col-performer {
@@ -2087,7 +2093,7 @@ body {
   }
 
   .col-date {
-    width: 70px;
+    width: 110px;
   }
 
   .col-performer {
@@ -2191,7 +2197,7 @@ body {
   }
 
   .col-date {
-    width: 60px;
+    width: 110px;
   }
 
   .col-performer {
