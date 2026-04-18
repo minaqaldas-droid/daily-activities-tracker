@@ -1,18 +1,21 @@
 -- ============================================
--- MIGRATION: Add performer_mode column to settings table
+-- MIGRATION: Add performer_mode column to settings
 -- ============================================
 
--- Add performer_mode column to settings table if it doesn't exist
-ALTER TABLE settings ADD COLUMN IF NOT EXISTS performer_mode VARCHAR DEFAULT 'manual';
+ALTER TABLE public.settings
+  ADD COLUMN IF NOT EXISTS performer_mode TEXT NOT NULL DEFAULT 'manual';
 
--- Add check constraint to ensure valid values
--- Note: This may fail if the constraint already exists
-ALTER TABLE settings ADD CONSTRAINT check_performer_mode 
+ALTER TABLE public.settings DROP CONSTRAINT IF EXISTS settings_performer_mode_check;
+ALTER TABLE public.settings
+  ADD CONSTRAINT settings_performer_mode_check
   CHECK (performer_mode IN ('manual', 'auto'));
 
--- Set default for existing rows (just in case)
-UPDATE settings SET performer_mode = 'manual' WHERE performer_mode IS NULL;
+UPDATE public.settings
+SET performer_mode = 'manual'
+WHERE performer_mode IS NULL;
 
--- Verify the column was added
-SELECT column_name, data_type, column_default FROM information_schema.columns 
-WHERE table_name = 'settings' AND column_name = 'performer_mode';
+SELECT column_name, data_type, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'settings'
+  AND column_name = 'performer_mode';

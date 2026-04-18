@@ -1,10 +1,16 @@
 import React, { useState } from 'react'
-import * as XLSX from 'xlsx'
-import { Activity } from '../supabaseClient'
+import { type Activity } from '../supabaseClient'
 
 interface ExcelExportProps {
   activities: Activity[]
   isLoading?: boolean
+}
+
+function isActivityWithinDateRange(activity: Activity, startDate: string, endDate: string) {
+  const activityDate = new Date(activity.date)
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  return activityDate >= start && activityDate <= end
 }
 
 export const ExcelExport: React.FC<ExcelExportProps> = ({
@@ -16,71 +22,70 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
     endDate: new Date().toISOString().split('T')[0],
   })
   const [exportFormat, setExportFormat] = useState<'current' | 'dateRange'>('dateRange')
+  const [isPreparing, setIsPreparing] = useState(false)
 
-  const handleExport = () => {
-    let dataToExport: Activity[] = []
+  const dateRangeActivities = activities.filter((activity) =>
+    isActivityWithinDateRange(activity, dateRange.startDate, dateRange.endDate)
+  )
 
-    if (exportFormat === 'current') {
-      dataToExport = activities
-    } else {
-      dataToExport = activities.filter((activity) => {
-        const actDate = new Date(activity.date)
-        const start = new Date(dateRange.startDate)
-        const end = new Date(dateRange.endDate)
-        return actDate >= start && actDate <= end
-      })
-    }
+  const handleExport = async () => {
+    const dataToExport = exportFormat === 'current' ? activities : dateRangeActivities
 
     if (dataToExport.length === 0) {
       alert('No activities found for the selected date range')
       return
     }
 
-    // Prepare data for export
-    const exportData = dataToExport.map((activity) => ({
-      Date: activity.date,
-      Performer: activity.performer,
-      System: activity.system,
-      Instrument: activity.instrument,
-      Problem: activity.problem,
-      Action: activity.action,
-      Comments: activity.comments || '',
-      'Edited By': activity.editedBy || '',
-      'Created At': activity.created_at || '',
-    }))
+    try {
+      setIsPreparing(true)
 
-    // Create workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exportData)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Activities')
+      const XLSX = await import('xlsx')
+      const exportData = dataToExport.map((activity) => ({
+        Date: activity.date,
+        Performer: activity.performer,
+        System: activity.system,
+        Instrument: activity.instrument,
+        Problem: activity.problem,
+        Action: activity.action,
+        Comments: activity.comments || '',
+        'Edited By': activity.editedBy || '',
+        'Created At': activity.created_at || '',
+      }))
 
-    // Set column widths
-    const maxWidth = 20
-    const wscols = [
-      { wch: 12 }, // Date
-      { wch: 15 }, // Performer
-      { wch: 12 }, // System
-      { wch: 15 }, // Instrument
-      { wch: maxWidth }, // Problem
-      { wch: maxWidth }, // Action
-      { wch: maxWidth }, // Comments
-      { wch: 15 }, // Edited By
-      { wch: 18 }, // Created At
-    ]
-    worksheet['!cols'] = wscols
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Activities')
 
-    // Generate filename
-    const filename = `Activities_${exportFormat === 'dateRange' ? `${dateRange.startDate}_to_${dateRange.endDate}` : new Date().toISOString().split('T')[0]}.xlsx`
+      worksheet['!cols'] = [
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 16 },
+        { wch: 30 },
+        { wch: 30 },
+        { wch: 25 },
+        { wch: 18 },
+        { wch: 22 },
+      ]
 
-    // Write file
-    XLSX.writeFile(workbook, filename)
+      const filename =
+        exportFormat === 'dateRange'
+          ? `Activities_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
+          : `Activities_${new Date().toISOString().split('T')[0]}.xlsx`
+
+      XLSX.writeFile(workbook, filename)
+    } finally {
+      setIsPreparing(false)
+    }
   }
 
   return (
     <div className="excel-export-container">
       <div className="excel-export-section">
-        <h3>📥 Export Activities to Excel</h3>
-        <p className="excel-hint">Download activities log as an Excel file for backup or further analysis</p>
+        <h3>Export Activities to Excel</h3>
+        <p className="excel-hint">
+          Download the activities log as an Excel file for backup or further analysis.
+        </p>
 
         <div className="export-options">
           <div className="export-option">
@@ -140,17 +145,7 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
                   />
                 </div>
 
-                <p className="date-range-info">
-                  {
-                    activities.filter((activity) => {
-                      const actDate = new Date(activity.date)
-                      const start = new Date(dateRange.startDate)
-                      const end = new Date(dateRange.endDate)
-                      return actDate >= start && actDate <= end
-                    }).length
-                  }{' '}
-                  activities in range
-                </p>
+                <p className="date-range-info">{dateRangeActivities.length} activities in range</p>
               </div>
             )}
           </div>
@@ -159,9 +154,9 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
         <button
           className="btn btn-primary"
           onClick={handleExport}
-          disabled={isLoading || activities.length === 0}
+          disabled={isLoading || isPreparing || activities.length === 0}
         >
-          {isLoading ? 'Preparing...' : '⬇️ Download Excel File'}
+          {isLoading || isPreparing ? 'Preparing...' : 'Download Excel File'}
         </button>
       </div>
     </div>

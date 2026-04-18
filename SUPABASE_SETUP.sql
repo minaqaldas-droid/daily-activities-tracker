@@ -1,55 +1,181 @@
 -- ============================================
 -- SUPABASE SQL SETUP SCRIPT
--- Daily Activities Tracker Database Schema
+-- Daily Activities Tracker
+-- Auth-backed schema with RLS
 -- ============================================
 
--- 1. Add system and editedBy columns to existing activities table (if not exists)
--- Note: These columns may already exist if you've run this script before
--- Uncomment lines below if needed for fresh setup:
--- ALTER TABLE activities ADD COLUMN IF NOT EXISTS system TEXT NOT NULL DEFAULT '';
--- ALTER TABLE activities ADD COLUMN IF NOT EXISTS editedBy TEXT;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 2. Create users table for authentication (if not exists)
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS public.activities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date DATE NOT NULL,
+  performer TEXT NOT NULL,
+  system TEXT NOT NULL DEFAULT '',
+  instrument TEXT NOT NULL,
+  problem TEXT NOT NULL,
+  action TEXT NOT NULL,
+  comments TEXT NOT NULL DEFAULT '',
+  editedBy TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
+);
+
+CREATE TABLE IF NOT EXISTS public.users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  password TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'superadmin')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
--- 3. Add role column to existing users table (if not exists)
-ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
-
--- 3. Create settings table for webapp configuration
-CREATE TABLE IF NOT EXISTS settings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  webapp_name TEXT DEFAULT 'Daily Activities Tracker',
-  logo_url TEXT DEFAULT '',
-  primary_color TEXT DEFAULT '#667eea',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_by UUID REFERENCES users(id) ON DELETE SET NULL
+CREATE TABLE IF NOT EXISTS public.settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webapp_name TEXT NOT NULL DEFAULT 'Daily Activities Tracker',
+  logo_url TEXT NOT NULL DEFAULT '',
+  primary_color TEXT NOT NULL DEFAULT '#667eea',
+  performer_mode TEXT NOT NULL DEFAULT 'manual' CHECK (performer_mode IN ('manual', 'auto')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+  updated_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
--- 4. Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_activities_performer ON activities(performer);
-CREATE INDEX IF NOT EXISTS idx_activities_instrument ON activities(instrument);
-CREATE INDEX IF NOT EXISTS idx_activities_system ON activities(system);
-CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date);
+CREATE INDEX IF NOT EXISTS idx_activities_date ON public.activities(date DESC);
+CREATE INDEX IF NOT EXISTS idx_activities_created_at ON public.activities(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activities_performer ON public.activities(performer);
+CREATE INDEX IF NOT EXISTS idx_activities_instrument ON public.activities(instrument);
+CREATE INDEX IF NOT EXISTS idx_activities_system ON public.activities(system);
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
 
--- ============================================
--- OPTIONAL: Enable Row Level Security (RLS)
--- ============================================
--- Uncomment these if you want to enable RLS (recommended for production)
+CREATE OR REPLACE FUNCTION public.is_superadmin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.users
+    WHERE id = auth.uid()
+      AND role = 'superadmin'
+  );
+$$;
 
--- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
+CREATE OR REPLACE FUNCTION public.sync_auth_user_profile()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.users (id, email, name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NULLIF(NEW.raw_user_meta_data ->> 'name', ''), split_part(NEW.email, '@', 1)),
+    'user'
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET
+    email = EXCLUDED.email,
+    name = COALESCE(NULLIF(EXCLUDED.name, ''), public.users.name);
 
--- ============================================
--- VERIFY TABLE STRUCTURES (Run these separately to check)
--- ============================================
--- SELECT * FROM information_schema.columns WHERE table_name = 'activities';
--- SELECT * FROM information_schema.columns WHERE table_name = 'users';
+  RETURN NEW;
+END;
+$$;
 
+DROP TRIGGER IF EXISTS on_auth_user_profile_changed ON auth.users;
+
+CREATE TRIGGER on_auth_user_profile_changed
+AFTER INSERT OR UPDATE ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_auth_user_profile();
+
+INSERT INTO public.settings (webapp_name, logo_url, primary_color, performer_mode)
+SELECT 'Daily Activities Tracker', '', '#667eea', 'manual'
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.settings
+);
+
+ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read activities" ON public.activities;
+CREATE POLICY "Authenticated users can read activities"
+  ON public.activities
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert activities" ON public.activities;
+CREATE POLICY "Authenticated users can insert activities"
+  ON public.activities
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated users can update activities" ON public.activities;
+CREATE POLICY "Authenticated users can update activities"
+  ON public.activities
+  FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated users can delete activities" ON public.activities;
+CREATE POLICY "Authenticated users can delete activities"
+  ON public.activities
+  FOR DELETE
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can read profiles" ON public.users;
+CREATE POLICY "Authenticated users can read profiles"
+  ON public.users
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.users;
+CREATE POLICY "Users can insert their own profile"
+  ON public.users
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
+CREATE POLICY "Users can update their own profile"
+  ON public.users
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Authenticated users can read settings" ON public.settings;
+CREATE POLICY "Authenticated users can read settings"
+  ON public.settings
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Superadmins can insert settings" ON public.settings;
+CREATE POLICY "Superadmins can insert settings"
+  ON public.settings
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (public.is_superadmin());
+
+DROP POLICY IF EXISTS "Superadmins can update settings" ON public.settings;
+CREATE POLICY "Superadmins can update settings"
+  ON public.settings
+  FOR UPDATE
+  TO authenticated
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+DROP POLICY IF EXISTS "Superadmins can delete settings" ON public.settings;
+CREATE POLICY "Superadmins can delete settings"
+  ON public.settings
+  FOR DELETE
+  TO authenticated
+  USING (public.is_superadmin());

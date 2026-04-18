@@ -1,152 +1,138 @@
-import React, { useState, useEffect } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
+import { AccountSettings } from './components/AccountSettings'
 import { ActivityForm } from './components/ActivityForm'
 import { ActivityList } from './components/ActivityList'
-import { Login } from './components/Login'
 import { Dashboard } from './components/Dashboard'
-import { AccountSettings } from './components/AccountSettings'
-import { SuperAdminPanel } from './components/SuperAdminPanel'
+import { Login } from './components/Login'
 import { SearchFilter } from './components/SearchFilter'
-import { ExcelImport } from './components/ExcelImport'
-import { ExcelExport } from './components/ExcelExport'
 import { Sidebar } from './components/Sidebar'
-import {
-  Activity,
-  User,
-  Settings,
-  getActivities,
-  createActivity,
-  updateActivity,
-  deleteActivity,
-  searchActivities,
-  getSettings,
-} from './supabaseClient'
+import { SuperAdminPanel } from './components/SuperAdminPanel'
+import { useActivities } from './hooks/useActivities'
+import { useAuth } from './hooks/useAuth'
+import { useSettings } from './hooks/useSettings'
+import { type Activity, type SearchFilters, type Settings, type User } from './supabaseClient'
+
+const ExcelImport = lazy(() =>
+  import('./components/ExcelImport').then((module) => ({ default: module.ExcelImport }))
+)
+
+const ExcelExport = lazy(() =>
+  import('./components/ExcelExport').then((module) => ({ default: module.ExcelExport }))
+)
+
+type AppView = 'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'
+type AppMessage = { type: 'success' | 'error'; text: string } | null
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    // Check localStorage on initial load
-    const saved = localStorage.getItem('currentUser')
-    return saved ? JSON.parse(saved) : null
+  const { currentUser, isAuthLoading, login, signUp, logout, setCurrentUser } = useAuth()
+  const { settings, setSettings } = useSettings(Boolean(currentUser))
+  const {
+    activities,
+    filteredActivities,
+    isLoading,
+    loadActivities,
+    removeActivity,
+    resetActivities,
+    runSearch,
+    saveActivity,
+    searchApplied,
+  } = useActivities({
+    currentUserName: currentUser?.name,
+    performerMode: settings.performer_mode || 'manual',
   })
-  const [activities, setActivities] = useState<Activity[]>([])
-  const [filteredActivities, setFilteredActivities] = useState<Activity[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const [message, setMessage] = useState<AppMessage>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingData, setEditingData] = useState<Activity | undefined>(undefined)
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'>('dashboard')
+  const [currentView, setCurrentView] = useState<AppView>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false)
-  const [searchApplied, setSearchApplied] = useState(false)
-  const [settings, setSettings] = useState<Settings>({
-    webapp_name: 'Daily Activities Tracker',
-    logo_url: '',
-    primary_color: '#667eea',
-    performer_mode: 'manual',
-  })
 
   useEffect(() => {
-    if (currentUser) {
-      // Persist user to localStorage
-      localStorage.setItem('currentUser', JSON.stringify(currentUser))
-      loadActivities()
-      loadSettings()
+    if (!currentUser) {
+      resetActivities()
+      setEditingId(null)
+      setEditingData(undefined)
+      setCurrentView('dashboard')
+      setShowAccountSettings(false)
+      setShowSuperAdminPanel(false)
+      return
     }
-  }, [currentUser])
 
-  const loadSettings = async () => {
-    try {
-      const appSettings = await getSettings()
-      setSettings(appSettings)
-    } catch (error) {
-      console.error('Error loading settings:', error)
-    }
-  }
+    let isMounted = true
 
-  useEffect(() => {
-    // Update filtered activities when activities change
-    setFilteredActivities(activities)
-  }, [activities])
+    void loadActivities().catch((error) => {
+      if (!isMounted) {
+        return
+      }
 
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [message])
-
-  useEffect(() => {
-    // Apply primary color to document root
-    if (settings.primary_color) {
-      document.documentElement.style.setProperty('--primary-color', settings.primary_color)
-    }
-  }, [settings.primary_color])
-
-  const loadActivities = async () => {
-    try {
-      setIsLoading(true)
-      const data = await getActivities()
-      setActivities(data)
-    } catch (error) {
       setMessage({
         type: 'error',
-        text: 'Failed to load activities. Make sure Supabase is configured.',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load activities. Make sure Supabase is configured correctly.',
       })
-      console.error(error)
-    } finally {
-      setIsLoading(false)
+    })
+
+    return () => {
+      isMounted = false
     }
+  }, [currentUser, loadActivities, resetActivities])
+
+  useEffect(() => {
+    if (!message) {
+      return
+    }
+
+    const timer = window.setTimeout(() => setMessage(null), 3000)
+    return () => window.clearTimeout(timer)
+  }, [message])
+
+  const handleLogin = async (email: string, password: string) => {
+    await login(email, password)
+    setMessage({ type: 'success', text: 'Logged in successfully.' })
+  }
+
+  const handleSignUp = async (email: string, name: string, password: string) => {
+    const result = await signUp(email, name, password)
+
+    if (result.user) {
+      setMessage({ type: 'success', text: 'Account created successfully.' })
+    }
+
+    return result
   }
 
   const handleAddOrUpdateActivity = async (activity: Activity) => {
+    const isEditing = Boolean(editingId)
+
     try {
-      setIsLoading(true)
-      if (editingId) {
-        // When editing, only update fields that should be changed (exclude id, created_at)
-        const updateData = {
-          date: activity.date,
-          performer: editingData?.performer || activity.performer,
-          system: activity.system,
-          instrument: activity.instrument,
-          problem: activity.problem,
-          action: activity.action,
-          comments: activity.comments,
-          editedBy: currentUser?.name,
-        }
-        await updateActivity(editingId, updateData)
-        setMessage({ type: 'success', text: 'Activity updated successfully!' })
-        // Clear editing state first
+      await saveActivity(activity, {
+        editingId,
+        editingData,
+      })
+
+      setMessage({
+        type: 'success',
+        text: isEditing ? 'Activity updated successfully.' : 'Activity added successfully.',
+      })
+
+      if (isEditing) {
         setEditingId(null)
         setEditingData(undefined)
-      } else {
-        // When adding, handle performer based on the mode
-        let performerName = activity.performer
-        if (settings.performer_mode === 'auto') {
-          // In auto mode, use logged-in user
-          performerName = currentUser?.name || activity.performer
-        }
-        // In manual mode, use the performer from the form
-        const activityWithPerformer = {
-          ...activity,
-          performer: performerName,
-        }
-        await createActivity(activityWithPerformer)
-        setMessage({ type: 'success', text: 'Activity added successfully!' })
+        setCurrentView('dashboard')
       }
-      await loadActivities()
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       setMessage({
         type: 'error',
-        text: editingId ? `Failed to update activity: ${errorMessage}` : `Failed to add activity: ${errorMessage}`,
+        text: error instanceof Error ? error.message : 'Failed to save activity.',
       })
-      console.error('Full error:', error)
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const handleEditActivity = (activity: Activity) => {
-    setEditingId(activity.id!)
+    setEditingId(activity.id || null)
     setEditingData(activity)
     setCurrentView('edit')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -154,61 +140,68 @@ function App() {
 
   const handleDeleteActivity = async (id: string) => {
     try {
-      setIsLoading(true)
-      await deleteActivity(id)
-      setMessage({ type: 'success', text: 'Activity deleted successfully!' })
-      await loadActivities()
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete activity' })
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleSearch = async (filters: { date?: string; performer?: string; instrument?: string }) => {
-    try {
-      setIsLoading(true)
-      if (!filters.date && !filters.performer && !filters.instrument) {
-        setFilteredActivities(activities)
-        setSearchApplied(false)
-      } else {
-        const results = await searchActivities(filters)
-        setFilteredActivities(results)
-        setSearchApplied(true)
-      }
+      await removeActivity(id)
+      setMessage({ type: 'success', text: 'Activity deleted successfully.' })
     } catch (error) {
       setMessage({
         type: 'error',
-        text: 'Failed to search activities',
+        text: error instanceof Error ? error.message : 'Failed to delete activity.',
       })
-      console.error(error)
-    } finally {
-      setIsLoading(false)
+    }
+  }
+
+  const handleSearch = async (filters: SearchFilters) => {
+    try {
+      await runSearch(filters)
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to search activities.',
+      })
     }
   }
 
   const handleUpdateUser = (updatedUser: User) => {
     setCurrentUser(updatedUser)
-    setMessage({ type: 'success', text: 'Account updated successfully!' })
+    setMessage({ type: 'success', text: 'Account updated successfully.' })
   }
 
-  const handleLogout = () => {
-    // Clear user from localStorage
-    localStorage.removeItem('currentUser')
-    setCurrentUser(null)
-    setActivities([])
-    setFilteredActivities([])
+  const handleLogout = async () => {
+    try {
+      await logout()
+      setMessage({ type: 'success', text: 'Logged out successfully.' })
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to log out.',
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
     setEditingId(null)
     setEditingData(undefined)
     setCurrentView('dashboard')
-    setShowAccountSettings(false)
-    setMessage({ type: 'success', text: 'Logged out successfully!' })
   }
 
-  // Show login form if user is not authenticated
+  const handleSettingsUpdate = (newSettings: Settings) => {
+    setSettings(newSettings)
+    setMessage({ type: 'success', text: 'Settings updated successfully.' })
+  }
+
+  if (isAuthLoading) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h1>Daily Activities Tracker</h1>
+          <p className="auth-subtitle">Restoring your session...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!currentUser) {
-    return <Login onLoginSuccess={setCurrentUser} />
+    return <Login onLogin={handleLogin} onSignUp={handleSignUp} />
   }
 
   return (
@@ -231,19 +224,18 @@ function App() {
               )}
               <div>
                 <h1>{settings.webapp_name}</h1>
-                <p>Track your daily work activities with problems, actions, and comments</p>
+                <p>Track your daily work activities with problems, actions, and comments.</p>
               </div>
             </div>
           </div>
         </div>
 
         {message && (
-          <div className={`${message.type === 'success' ? 'success-message' : 'error-message'}`}>
+          <div className={message.type === 'success' ? 'success-message' : 'error-message'}>
             {message.text}
           </div>
         )}
 
-        {/* Account Settings Modal */}
         {showAccountSettings && (
           <AccountSettings
             user={currentUser}
@@ -253,27 +245,22 @@ function App() {
           />
         )}
 
-        {/* Superadmin Settings Modal */}
         {showSuperAdminPanel && currentUser.role === 'superadmin' && (
           <SuperAdminPanel
             user={currentUser}
             currentSettings={settings}
             onClose={() => setShowSuperAdminPanel(false)}
-            onSettingsUpdate={(newSettings) => {
-              setSettings(newSettings)
-              setMessage({ type: 'success', text: 'Settings updated successfully!' })
-            }}
+            onSettingsUpdate={handleSettingsUpdate}
             isLoading={isLoading}
           />
         )}
 
         <div className="content-wrapper">
-          {/* Dashboard View */}
           {currentView === 'dashboard' && (
             <div className="dashboard-section-main">
-              <Dashboard 
-                activities={activities} 
-                performerName={currentUser.name} 
+              <Dashboard
+                activities={activities}
+                performerName={currentUser.name}
                 onEdit={handleEditActivity}
                 onDelete={handleDeleteActivity}
                 isLoading={isLoading}
@@ -281,36 +268,20 @@ function App() {
             </div>
           )}
 
-          {/* Add Activity View */}
           {currentView === 'add' && (
             <>
               <div className="form-section">
-                <h2>
-                  {editingId ? '✏️ Edit Activity' : '➕ Add New Activity'}
-                </h2>
+                <h2>Add New Activity</h2>
                 <ActivityForm
                   onSubmit={handleAddOrUpdateActivity}
-                  initialData={editingData}
                   isLoading={isLoading}
                   performerMode={settings.performer_mode || 'manual'}
-                  currentUserName={currentUser?.name}
+                  currentUserName={currentUser.name}
                 />
-                {editingId && (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setEditingId(null)
-                      setEditingData(undefined)
-                    }}
-                    style={{ marginTop: '10px' }}
-                  >
-                    Cancel Edit
-                  </button>
-                )}
               </div>
 
               <div className="list-section">
-                <h2>📝 Recent Activities</h2>
+                <h2>Recent Activities</h2>
                 <ActivityList
                   activities={activities.slice(0, 10)}
                   onEdit={handleEditActivity}
@@ -321,33 +292,24 @@ function App() {
             </>
           )}
 
-          {/* Edit Activity View */}
           {currentView === 'edit' && editingId && editingData ? (
             <>
               <div className="form-section">
-                <h2>✏️ Edit Activity</h2>
+                <h2>Edit Activity</h2>
                 <ActivityForm
                   onSubmit={handleAddOrUpdateActivity}
                   initialData={editingData}
                   isLoading={isLoading}
                   performerMode={settings.performer_mode || 'manual'}
-                  currentUserName={currentUser?.name}
+                  currentUserName={currentUser.name}
                 />
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setEditingId(null)
-                    setEditingData(undefined)
-                    setCurrentView('dashboard')
-                  }}
-                  style={{ marginTop: '10px' }}
-                >
-                  ← Back to Dashboard
+                <button className="btn btn-secondary" onClick={handleCancelEdit} style={{ marginTop: '10px' }}>
+                  Back to Dashboard
                 </button>
               </div>
 
               <div className="list-section">
-                <h2>📝 All Activities</h2>
+                <h2>All Activities</h2>
                 <ActivityList
                   activities={activities}
                   onEdit={handleEditActivity}
@@ -358,17 +320,13 @@ function App() {
             </>
           ) : currentView === 'edit' ? (
             <div className="empty-state">
-              <p>No activity selected for editing. Please edit an activity from the Dashboard or Search.</p>
-              <button
-                className="btn btn-primary"
-                onClick={() => setCurrentView('dashboard')}
-              >
-                ← Go to Dashboard
+              <p>No activity selected for editing. Choose one from the dashboard or search results.</p>
+              <button className="btn btn-primary" onClick={() => setCurrentView('dashboard')}>
+                Go to Dashboard
               </button>
             </div>
           ) : null}
 
-          {/* Search Activity View */}
           {currentView === 'search' && (
             <>
               <div className="search-section">
@@ -376,13 +334,11 @@ function App() {
               </div>
 
               {searchApplied && (
-                <div className="search-info">
-                  Found {filteredActivities.length} activity(ies)
-                </div>
+                <div className="search-info">Found {filteredActivities.length} activit{filteredActivities.length === 1 ? 'y' : 'ies'}.</div>
               )}
 
               <div className="list-section">
-                <h2>📝 Search Results ({filteredActivities.length})</h2>
+                <h2>Search Results ({filteredActivities.length})</h2>
                 <ActivityList
                   activities={filteredActivities}
                   onEdit={handleEditActivity}
@@ -393,33 +349,46 @@ function App() {
             </>
           )}
 
-          {/* Import Excel View */}
           {currentView === 'import' && (
-            <ExcelImport
-              onImportSuccess={(count) => {
-                setMessage({
-                  type: 'success',
-                  text: `Successfully imported ${count} activities!`,
-                })
-                loadActivities()
-              }}
-              onImportError={(error) => {
-                setMessage({
-                  type: 'error',
-                  text: `Import failed: ${error}`,
-                })
-              }}
-              isLoading={isLoading}
-              currentUserName={currentUser?.name}
-            />
+            <Suspense
+              fallback={
+                <div className="form-section">
+                  <p>Loading import tools...</p>
+                </div>
+              }
+            >
+              <ExcelImport
+                onImportSuccess={(count) => {
+                  setMessage({
+                    type: 'success',
+                    text: `Successfully imported ${count} activit${count === 1 ? 'y' : 'ies'}.`,
+                  })
+                  void loadActivities().catch((error) => {
+                    console.error('Error refreshing activities after import:', error)
+                  })
+                }}
+                onImportError={(error) => {
+                  setMessage({
+                    type: 'error',
+                    text: `Import failed: ${error}`,
+                  })
+                }}
+                isLoading={isLoading}
+                currentUserName={currentUser.name}
+              />
+            </Suspense>
           )}
 
-          {/* Export Excel View */}
           {currentView === 'export' && (
-            <ExcelExport
-              activities={activities}
-              isLoading={isLoading}
-            />
+            <Suspense
+              fallback={
+                <div className="form-section">
+                  <p>Loading export tools...</p>
+                </div>
+              }
+            >
+              <ExcelExport activities={activities} isLoading={isLoading} />
+            </Suspense>
           )}
         </div>
       </div>

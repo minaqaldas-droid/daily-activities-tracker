@@ -1,41 +1,11 @@
 import React, { useState } from 'react'
-
-interface SearchFilters {
-  date?: string
-  startDate?: string
-  endDate?: string
-  performer?: string
-  instrument?: string
-  system?: string
-  keyword?: string
-}
+import { SYSTEM_OPTIONS } from '../constants/systems'
+import { type SearchFilters } from '../supabaseClient'
 
 interface SearchFilterProps {
-  onSearch: (filters: SearchFilters) => void
+  onSearch: (filters: SearchFilters) => void | Promise<void>
   isLoading?: boolean
 }
-
-const SYSTEMS = [
-  'DCS',
-  'ESD',
-  'FGS',
-  'ACCS',
-  'LCS',
-  '200K1A',
-  '200K1B',
-  '200K2A',
-  '200K2B',
-  '400K1',
-  '923K1A',
-  '923K1B',
-  '923K1C',
-  'Demi',
-  'Sanitary',
-  'Steam Boiler',
-  'Air Dryer A/B',
-  'Air Dryer C/D',
-  '400CEMS',
-]
 
 export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading = false }) => {
   const [keyword, setKeyword] = useState('')
@@ -47,9 +17,9 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
   const [system, setSystem] = useState('')
   const [instrument, setInstrument] = useState('')
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const filters: SearchFilters = {
       keyword: keyword || undefined,
       performer: performer || undefined,
@@ -64,10 +34,10 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
       filters.date = singleDate || undefined
     }
 
-    onSearch(filters)
+    await onSearch(filters)
   }
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setKeyword('')
     setSingleDate('')
     setStartDate('')
@@ -76,16 +46,17 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
     setSystem('')
     setInstrument('')
     setUseDateRange(false)
-    onSearch({})
+    await onSearch({})
   }
 
-  const hasActiveFilters = keyword || singleDate || startDate || endDate || performer || system || instrument
+  const hasActiveFilters = Boolean(
+    keyword || singleDate || startDate || endDate || performer || system || instrument
+  )
 
   return (
     <form onSubmit={handleSearch} className="search-filter">
-      <h3>🔍 Search & Filter Activities</h3>
-      
-      {/* Keyword Search */}
+      <h3>Search & Filter Activities</h3>
+
       <div className="search-section-group">
         <h4>Search by Keyword</h4>
         <div className="form-group">
@@ -97,11 +68,10 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
             disabled={isLoading}
             className="keyword-input"
           />
-          <small>Searches across date, performer, system, instrument, problem, action, and comments</small>
+          <small>Searches across date, performer, system, instrument, problem, action, and comments.</small>
         </div>
       </div>
 
-      {/* Date Search */}
       <div className="search-section-group">
         <h4>Search by Date</h4>
         <div className="date-toggle">
@@ -162,7 +132,6 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
         )}
       </div>
 
-      {/* Other Filters */}
       <div className="search-grid">
         <div className="form-group">
           <label htmlFor="filterSystem">By System</label>
@@ -173,9 +142,9 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
             disabled={isLoading}
           >
             <option value="">All Systems</option>
-            {SYSTEMS.map((sys) => (
-              <option key={sys} value={sys}>
-                {sys}
+            {SYSTEM_OPTIONS.map((systemOption) => (
+              <option key={systemOption} value={systemOption}>
+                {systemOption}
               </option>
             ))}
           </select>
@@ -207,21 +176,12 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
       </div>
 
       <div className="search-actions">
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Searching...' : '🔍 Search'}
+        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+          {isLoading ? 'Searching...' : 'Search'}
         </button>
         {hasActiveFilters && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleReset}
-            disabled={isLoading}
-          >
-            ✕ Clear All
+          <button type="button" className="btn btn-secondary" onClick={handleReset} disabled={isLoading}>
+            Clear All
           </button>
         )}
       </div>

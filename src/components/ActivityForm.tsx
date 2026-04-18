@@ -1,27 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { Activity, getUsers } from '../supabaseClient'
-
-const SYSTEMS = [
-  'DCS',
-  'ESD',
-  'FGS',
-  'ACCS',
-  'LCS',
-  '200K1A',
-  '200K1B',
-  '200K2A',
-  '200K2B',
-  '400K1',
-  '923K1A',
-  '923K1B',
-  '923K1C',
-  'Demi',
-  'Sanitary',
-  'Steam Boiler',
-  'Air Dryer A/B',
-  'Air Dryer C/D',
-  '400CEMS',
-]
+import React, { useEffect, useState } from 'react'
+import { SYSTEM_OPTIONS } from '../constants/systems'
+import { type Activity, getUsers } from '../supabaseClient'
 
 interface ActivityFormProps {
   onSubmit: (activity: Activity) => Promise<void>
@@ -31,6 +10,16 @@ interface ActivityFormProps {
   currentUserName?: string
 }
 
+const getInitialFormData = (): Activity => ({
+  date: new Date().toISOString().split('T')[0],
+  performer: '',
+  system: '',
+  instrument: '',
+  problem: '',
+  action: '',
+  comments: '',
+})
+
 export const ActivityForm: React.FC<ActivityFormProps> = ({
   onSubmit,
   initialData,
@@ -38,79 +27,88 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   performerMode = 'manual',
   currentUserName = '',
 }) => {
-  const [formData, setFormData] = useState<Activity>({
-    date: new Date().toISOString().split('T')[0],
-    performer: '',
-    system: '',
-    instrument: '',
-    problem: '',
-    action: '',
-    comments: '',
-  })
+  const [formData, setFormData] = useState<Activity>(getInitialFormData())
   const [usersList, setUsersList] = useState<Array<{ id: string; name: string; email: string }>>([])
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const [performerIsOther, setPerformerIsOther] = useState(false)
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData)
-      // Check if performer is in the users list
-      const isUserInList = usersList.some((u) => u.name === initialData.performer)
-      if (!isUserInList && initialData.performer) {
-        setPerformerIsOther(true)
-      }
-    } else if (performerMode === 'auto' && currentUserName && !formData.performer) {
-      // Auto-fill performer name when in auto mode
-      setFormData((prev) => ({
-        ...prev,
-        performer: currentUserName,
-      }))
+      setFormData({
+        ...initialData,
+        comments: initialData.comments ?? '',
+      })
+      return
     }
-  }, [initialData, performerMode, currentUserName])
+
+    const nextFormData = getInitialFormData()
+    if (performerMode === 'auto' && currentUserName) {
+      nextFormData.performer = currentUserName
+    }
+
+    setFormData(nextFormData)
+  }, [currentUserName, initialData, performerMode])
 
   useEffect(() => {
-    // Load users list for manual mode dropdown
-    if (performerMode === 'manual') {
-      loadUsers()
-    }
-  }, [performerMode])
+    const isKnownUser = usersList.some((user) => user.name === formData.performer)
+    setPerformerIsOther(Boolean(formData.performer) && performerMode === 'manual' && !isKnownUser)
+  }, [formData.performer, performerMode, usersList])
 
-  const loadUsers = async () => {
-    try {
-      setIsLoadingUsers(true)
-      const users = await getUsers()
-      setUsersList(users || [])
-    } catch (error) {
-      console.error('Failed to load users:', error)
-    } finally {
-      setIsLoadingUsers(false)
+  useEffect(() => {
+    if (performerMode !== 'manual') {
+      return
     }
-  }
+
+    const loadUsers = async () => {
+      try {
+        setIsLoadingUsers(true)
+        const users = await getUsers()
+        setUsersList(users || [])
+      } catch (error) {
+        console.error('Failed to load users:', error)
+      } finally {
+        setIsLoadingUsers(false)
+      }
+    }
+
+    void loadUsers()
+  }, [performerMode])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }))
   }
 
+  const handleReset = () => {
+    if (initialData) {
+      setFormData({
+        ...initialData,
+        comments: initialData.comments ?? '',
+      })
+      return
+    }
+
+    const nextFormData = getInitialFormData()
+    if (performerMode === 'auto' && currentUserName) {
+      nextFormData.performer = currentUserName
+    }
+
+    setPerformerIsOther(false)
+    setFormData(nextFormData)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     await onSubmit(formData)
-    // Only reset form when adding new activity (not editing)
+
     if (!initialData) {
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        performer: '',
-        system: '',
-        instrument: '',
-        problem: '',
-        action: '',
-        comments: '',
-      })
+      handleReset()
     }
   }
 
@@ -118,14 +116,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
     <form onSubmit={handleSubmit}>
       <div className="form-group">
         <label htmlFor="date">Date *</label>
-        <input
-          type="date"
-          id="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          required
-        />
+        <input type="date" id="date" name="date" value={formData.date} onChange={handleChange} required />
       </div>
 
       <div className="form-group">
@@ -143,13 +134,14 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
                     ...prev,
                     performer: '',
                   }))
-                } else {
-                  setPerformerIsOther(false)
-                  setFormData((prev) => ({
-                    ...prev,
-                    performer: e.target.value,
-                  }))
+                  return
                 }
+
+                setPerformerIsOther(false)
+                setFormData((prev) => ({
+                  ...prev,
+                  performer: e.target.value,
+                }))
               }}
               required={!performerIsOther}
               disabled={isLoadingUsers}
@@ -162,26 +154,24 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
               ))}
               <option value="OTHER">Other</option>
             </select>
-            <small className="form-hint">Select a user or choose "Other"</small>
+            <small className="form-hint">Select a team member or choose "Other".</small>
 
             {performerIsOther && (
-              <>
-                <input
-                  type="text"
-                  id="performer-other"
-                  name="performer-other"
-                  value={formData.performer}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      performer: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter performer name"
-                  required
-                  style={{ marginTop: '10px' }}
-                />
-              </>
+              <input
+                type="text"
+                id="performer-other"
+                name="performer-other"
+                value={formData.performer}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    performer: e.target.value,
+                  }))
+                }
+                placeholder="Enter performer name"
+                required
+                style={{ marginTop: '10px' }}
+              />
             )}
           </>
         ) : (
@@ -192,28 +182,22 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
               name="performer"
               value={formData.performer}
               onChange={handleChange}
-              disabled={performerMode === 'auto'}
+              disabled
               placeholder="Enter performer name"
               required
             />
-            <small className="form-hint">🔐 Auto-filled from your account</small>
+            <small className="form-hint">Auto-filled from your signed-in account.</small>
           </>
         )}
       </div>
 
       <div className="form-group">
         <label htmlFor="system">System *</label>
-        <select
-          id="system"
-          name="system"
-          value={formData.system}
-          onChange={handleChange}
-          required
-        >
+        <select id="system" name="system" value={formData.system} onChange={handleChange} required>
           <option value="">-- Select System --</option>
-          {SYSTEMS.map((sys) => (
-            <option key={sys} value={sys}>
-              {sys}
+          {SYSTEM_OPTIONS.map((system) => (
+            <option key={system} value={system}>
+              {system}
             </option>
           ))}
         </select>
@@ -266,39 +250,19 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           placeholder="Any additional comments (optional)"
         />
         <small className="form-hint">
-          {performerIsOther && performerMode === 'manual' 
-            ? '💡 Please identify who the "Other" performer is in this section'
-            : 'Additional notes about this activity'}
+          {performerIsOther && performerMode === 'manual'
+            ? 'Please add any extra context about the custom performer entry here.'
+            : 'Additional notes about this activity.'}
         </small>
       </div>
 
       <div className="form-actions">
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isLoading}
-        >
+        <button type="submit" className="btn btn-primary" disabled={isLoading}>
           {isLoading ? 'Saving...' : initialData ? 'Update Activity' : 'Add Activity'}
         </button>
-        {initialData && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              setFormData({
-                date: new Date().toISOString().split('T')[0],
-                performer: '',
-                system: '',
-                instrument: '',
-                problem: '',
-                action: '',
-                comments: '',
-              })
-            }}
-          >
-            Clear
-          </button>
-        )}
+        <button type="button" className="btn btn-secondary" onClick={handleReset}>
+          {initialData ? 'Reset Changes' : 'Clear'}
+        </button>
       </div>
     </form>
   )

@@ -1,12 +1,17 @@
 -- ============================================
--- MIGRATION: Add missing columns to activities table
+-- MIGRATION: Align activities table with current app schema
 -- ============================================
 
--- Add system column if it doesn't exist
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS system TEXT DEFAULT '';
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS system TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS instrument TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS comments TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS editedBy TEXT;
 
--- Add editedBy column if it doesn't exist  
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS editedBy TEXT;
+CREATE INDEX IF NOT EXISTS idx_activities_system ON public.activities(system);
+CREATE INDEX IF NOT EXISTS idx_activities_instrument ON public.activities(instrument);
 
--- Verify the columns were added
-SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'activities' ORDER BY ordinal_position;
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'activities'
+ORDER BY ordinal_position;

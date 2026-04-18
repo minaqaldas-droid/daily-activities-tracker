@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { User, updateUserDetails } from '../supabaseClient'
+import { type User, updateUserDetails } from '../supabaseClient'
 
 interface AccountSettingsProps {
   user: User
@@ -16,7 +16,6 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
 }) => {
   const [name, setName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
-  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,37 +27,38 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
     setError('')
     setSuccess('')
 
-    if (!name || !email) {
-      setError('Name and email are required')
+    if (!name.trim() || !email.trim()) {
+      setError('Name and email are required.')
       return
     }
 
     if (newPassword && newPassword !== confirmPassword) {
-      setError('New passwords do not match')
+      setError('New passwords do not match.')
       return
     }
 
     try {
       setIsSubmitting(true)
-      const passwordToUpdate = newPassword || currentPassword || user.password || ''
-      await updateUserDetails(user.id || '', name, email, passwordToUpdate)
-      
-      const updatedUser: User = {
-        ...user,
+
+      const result = await updateUserDetails(user.id, {
         name,
         email,
-        password: passwordToUpdate,
-      }
-      
-      onUpdateSuccess(updatedUser)
-      setSuccess('Account details updated successfully!')
+        password: newPassword || undefined,
+      })
+
+      onUpdateSuccess(result.user)
+
+      setSuccess(
+        result.emailChangePending
+          ? `Profile updated. Confirm the email change sent to ${result.pendingEmail}.`
+          : 'Account details updated successfully.'
+      )
       setNewPassword('')
       setConfirmPassword('')
-      setCurrentPassword('')
-      
+
       setTimeout(onClose, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update account')
+      setError(err instanceof Error ? err.message : 'Failed to update account.')
     } finally {
       setIsSubmitting(false)
     }
@@ -100,21 +100,10 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
               disabled={isSubmitting}
               required
             />
+            <small className="form-hint">Changing the email may require confirmation through Supabase Auth.</small>
           </div>
 
           <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #ddd' }} />
-
-          <div className="form-group">
-            <label htmlFor="currentPassword">Current Password</label>
-            <input
-              type="password"
-              id="currentPassword"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Leave blank to keep current password"
-              disabled={isSubmitting}
-            />
-          </div>
 
           <div className="form-group">
             <label htmlFor="newPassword">New Password</label>
@@ -123,7 +112,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
               id="newPassword"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Leave blank to keep current password"
+              placeholder="Leave blank to keep your current password"
               disabled={isSubmitting}
             />
           </div>
@@ -141,11 +130,7 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
           </div>
 
           <div className="modal-actions">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSubmitting || isLoading}
-            >
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting || isLoading}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
             <button

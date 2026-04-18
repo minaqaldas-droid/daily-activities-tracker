@@ -1,9 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import {
+  createClient,
+  type AuthChangeEvent,
+  type Session,
+  type SupabaseClient,
+  type User as SupabaseAuthUser,
+  type UserAttributes,
+} from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+function assertSupabaseConfigured() {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
+  }
+}
+
+assertSupabaseConfigured()
+
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+})
 
 export interface Activity {
   id?: string
@@ -14,16 +35,15 @@ export interface Activity {
   problem: string
   action: string
   comments: string
-  editedBy?: string
+  editedBy?: string | null
   created_at?: string
 }
 
 export interface User {
-  id?: string
+  id: string
   email: string
   name: string
-  password?: string
-  role?: 'user' | 'superadmin'
+  role: 'user' | 'superadmin'
   created_at?: string
 }
 
@@ -37,9 +57,195 @@ export interface Settings {
   updated_by?: string
 }
 
-export interface AuthSession {
-  user: User | null
-  isAuthenticated: boolean
+export interface SearchFilters {
+  date?: string
+  startDate?: string
+  endDate?: string
+  performer?: string
+  instrument?: string
+  system?: string
+  keyword?: string
+}
+
+export interface AuthActionResult {
+  user?: User
+  requiresEmailConfirmation: boolean
+  message?: string
+}
+
+export interface UpdateUserDetailsInput {
+  name: string
+  email: string
+  password?: string
+}
+
+export interface UpdateUserDetailsResult {
+  user: User
+  emailChangePending: boolean
+  pendingEmail?: string
+}
+
+type UserProfileRow = {
+  id: string
+  email: string
+  name: string
+  role: 'user' | 'superadmin' | null
+  created_at?: string
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  webapp_name: 'Daily Activities Tracker',
+  logo_url: '',
+  primary_color: '#667eea',
+  performer_mode: 'manual',
+}
+
+function normalizeUserProfile(profile: UserProfileRow): User {
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    role: profile.role === 'superadmin' ? 'superadmin' : 'user',
+    created_at: profile.created_at,
+  }
+}
+
+function getMetadataName(authUser: SupabaseAuthUser) {
+  const metadataName =
+    typeof authUser.user_metadata?.name === 'string' ? authUser.user_metadata.name.trim() : ''
+
+  if (metadataName) {
+    return metadataName
+  }
+
+  if (authUser.email) {
+    return authUser.email.split('@')[0]
+  }
+
+  return 'User'
+}
+
+function getProfileSyncErrorMessage(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error)
+
+  if (rawMessage.includes('null value in column "password"')) {
+    return 'The users table is still using the legacy password column. Run the auth hardening SQL migration first.'
+  }
+
+  if (rawMessage.includes('users_email_key')) {
+    return 'A legacy user row already exists for this email. Run the auth hardening SQL migration to map existing users to Supabase Auth.'
+  }
+
+  return rawMessage
+}
+
+async function getUserProfileById(userId: string) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, name, role, created_at')
+    .eq('id', userId)
+    .maybeSingle<UserProfileRow>()
+
+  if (error) {
+    throw error
+  }
+
+  return data ? normalizeUserProfile(data) : null
+}
+
+async function upsertUserProfile(profile: User) {
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(
+      [
+        {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          role: profile.role,
+        },
+      ],
+      { onConflict: 'id' }
+    )
+    .select('id, email, name, role, created_at')
+    .single<UserProfileRow>()
+
+  if (error) {
+    throw new Error(getProfileSyncErrorMessage(error))
+  }
+
+  return normalizeUserProfile(data)
+}
+
+async function syncUserProfile(authUser: SupabaseAuthUser) {
+  const existingProfile = await getUserProfileById(authUser.id)
+  const desiredProfile: User = {
+    id: authUser.id,
+    email: authUser.email ?? existingProfile?.email ?? '',
+    name: existingProfile?.name || getMetadataName(authUser),
+    role: existingProfile?.role ?? 'user',
+    created_at: existingProfile?.created_at,
+  }
+
+  if (
+    existingProfile &&
+    existingProfile.email === desiredProfile.email &&
+    existingProfile.name === desiredProfile.name &&
+    existingProfile.role === desiredProfile.role
+  ) {
+    return existingProfile
+  }
+
+  return upsertUserProfile(desiredProfile)
+}
+
+function getFormattedActivity(activity: Activity) {
+  return {
+    ...activity,
+    comments: activity.comments ?? '',
+    editedBy: activity.editedBy ?? null,
+  }
+}
+
+function matchesSearchFilters(filters: SearchFilters) {
+  return Object.values(filters).some((value) => Boolean(value))
+}
+
+export async function getCurrentUserProfile() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  if (error) {
+    throw error
+  }
+
+  if (!user) {
+    return null
+  }
+
+  return syncUserProfile(user)
+}
+
+export function subscribeToAuthChanges(callback: (user: User | null) => void) {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    if (!session?.user) {
+      callback(null)
+      return
+    }
+
+    void syncUserProfile(session.user)
+      .then((profile) => callback(profile))
+      .catch((error) => {
+        console.error('Error syncing auth state:', error)
+        callback(null)
+      })
+  })
+
+  return () => subscription.unsubscribe()
 }
 
 export async function getActivities() {
@@ -47,10 +253,11 @@ export async function getActivities() {
     const { data, error } = await supabase
       .from('activities')
       .select('*')
+      .order('date', { ascending: false })
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return data || []
+    return (data || []) as Activity[]
   } catch (error) {
     console.error('Error fetching activities:', error)
     throw error
@@ -61,13 +268,32 @@ export async function createActivity(activity: Activity) {
   try {
     const { data, error } = await supabase
       .from('activities')
-      .insert([activity])
+      .insert([getFormattedActivity(activity)])
       .select()
 
     if (error) throw error
-    return data?.[0]
+    return data?.[0] as Activity | undefined
   } catch (error) {
     console.error('Error creating activity:', error)
+    throw error
+  }
+}
+
+export async function createActivities(activities: Activity[]) {
+  try {
+    if (activities.length === 0) {
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from('activities')
+      .insert(activities.map(getFormattedActivity))
+      .select('id')
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error bulk creating activities:', error)
     throw error
   }
 }
@@ -76,29 +302,28 @@ export async function updateActivity(id: string, activity: Partial<Activity>) {
   try {
     const { data, error } = await supabase
       .from('activities')
-      .update(activity)
+      .update({
+        ...activity,
+        comments: activity.comments ?? '',
+      })
       .eq('id', id)
       .select()
 
     if (error) {
-      const errorMsg = error.message || JSON.stringify(error)
-      console.error('Supabase update error details:', errorMsg)
-      throw new Error(`Update failed: ${errorMsg}`)
+      const errorMessage = error.message || JSON.stringify(error)
+      throw new Error(`Update failed: ${errorMessage}`)
     }
-    return data?.[0]
+
+    return data?.[0] as Activity | undefined
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('Error updating activity:', message)
+    console.error('Error updating activity:', error)
     throw error
   }
 }
 
 export async function deleteActivity(id: string) {
   try {
-    const { error } = await supabase
-      .from('activities')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('activities').delete().eq('id', id)
 
     if (error) throw error
   } catch (error) {
@@ -107,16 +332,36 @@ export async function deleteActivity(id: string) {
   }
 }
 
-// Authentication functions
-export async function signUp(email: string, name: string, password: string) {
+export async function signUp(email: string, name: string, password: string): Promise<AuthActionResult> {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .insert([{ email, name, password }])
-      .select()
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+        },
+      },
+    })
 
     if (error) throw error
-    return data?.[0]
+    if (!data.user) {
+      throw new Error('Unable to create account.')
+    }
+
+    if (!data.session) {
+      return {
+        requiresEmailConfirmation: true,
+        message: 'Account created. Check your email to confirm your account, then sign in.',
+      }
+    }
+
+    const profile = await syncUserProfile(data.user)
+
+    return {
+      user: profile,
+      requiresEmailConfirmation: false,
+    }
   } catch (error) {
     console.error('Error signing up:', error)
     throw error
@@ -125,19 +370,30 @@ export async function signUp(email: string, name: string, password: string) {
 
 export async function login(email: string, password: string) {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('password', password)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
     if (error) throw error
-    if (!data || data.length === 0) {
-      throw new Error('Invalid email or password')
+    if (!data.user) {
+      throw new Error('Unable to sign in.')
     }
-    return data[0]
+
+    return syncUserProfile(data.user)
   } catch (error) {
     console.error('Error logging in:', error)
+    throw error
+  }
+}
+
+export async function logout() {
+  try {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error logging out:', error)
     throw error
   }
 }
@@ -147,6 +403,7 @@ export async function getUsers() {
     const { data, error } = await supabase
       .from('users')
       .select('id, email, name')
+      .order('name', { ascending: true })
 
     if (error) throw error
     return data || []
@@ -162,53 +419,94 @@ export async function getActivitiesByUser(userName: string) {
       .from('activities')
       .select('*')
       .eq('performer', userName)
+      .order('date', { ascending: false })
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return data || []
+    return (data || []) as Activity[]
   } catch (error) {
     console.error('Error fetching user activities:', error)
     throw error
   }
 }
 
-export async function updateUserDetails(userId: string, name: string, email: string, password: string) {
+export async function updateUserDetails(userId: string, details: UpdateUserDetailsInput): Promise<UpdateUserDetailsResult> {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ name, email, password })
-      .eq('id', userId)
-      .select()
+    const trimmedName = details.name.trim()
+    const trimmedEmail = details.email.trim()
 
-    if (error) throw error
-    return data?.[0]
+    const {
+      data: { user: authUser },
+      error: getUserError,
+    } = await supabase.auth.getUser()
+
+    if (getUserError) throw getUserError
+    if (!authUser || authUser.id !== userId) {
+      throw new Error('You can only update your own account.')
+    }
+
+    const authUpdates: UserAttributes = {
+      data: {
+        ...authUser.user_metadata,
+        name: trimmedName,
+      },
+    }
+
+    if (trimmedEmail && trimmedEmail !== authUser.email) {
+      authUpdates.email = trimmedEmail
+    }
+
+    if (details.password?.trim()) {
+      authUpdates.password = details.password.trim()
+    }
+
+    let updatedAuthUser = authUser
+    if (authUpdates.email || authUpdates.password || authUpdates.data) {
+      const { data, error } = await supabase.auth.updateUser(authUpdates)
+      if (error) throw error
+      updatedAuthUser = data.user ?? authUser
+    }
+
+    const emailChangePending = Boolean(authUpdates.email && updatedAuthUser.email !== trimmedEmail)
+    const emailForProfile = updatedAuthUser.email ?? authUser.email ?? trimmedEmail
+
+    const { data: updatedProfile, error: profileError } = await supabase
+      .from('users')
+      .update({
+        name: trimmedName,
+        email: emailForProfile,
+      })
+      .eq('id', userId)
+      .select('id, email, name, role, created_at')
+      .single<UserProfileRow>()
+
+    if (profileError) throw profileError
+
+    return {
+      user: normalizeUserProfile(updatedProfile),
+      emailChangePending,
+      pendingEmail: emailChangePending ? trimmedEmail : undefined,
+    }
   } catch (error) {
     console.error('Error updating user:', error)
     throw error
   }
 }
 
-// Settings functions (Superadmin only)
 export async function getSettings() {
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .limit(1)
+    const { data, error } = await supabase.from('settings').select('*').limit(1)
 
     if (error) throw error
-    
-    // Return first settings record or default
+
     if (data && data.length > 0) {
-      return data[0]
+      return {
+        ...DEFAULT_SETTINGS,
+        ...data[0],
+      } as Settings
     }
-    
-    // Return default settings if no record exists
-    return {
-      webapp_name: 'Daily Activities Tracker',
-      logo_url: '',
-      primary_color: '#667eea'
-    }
+
+    return DEFAULT_SETTINGS
   } catch (error) {
     console.error('Error fetching settings:', error)
     throw error
@@ -217,39 +515,41 @@ export async function getSettings() {
 
 export async function updateSettings(settings: Partial<Settings>, userId: string) {
   try {
-    // First, check if settings exist
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('settings')
       .select('id')
       .limit(1)
 
+    if (existingError) throw existingError
+
     if (existing && existing.length > 0) {
-      // Update existing
       const { data, error } = await supabase
         .from('settings')
         .update({
           ...settings,
           updated_at: new Date().toISOString(),
-          updated_by: userId
+          updated_by: userId,
         })
         .eq('id', existing[0].id)
         .select()
 
       if (error) throw error
-      return data?.[0]
-    } else {
-      // Insert new
-      const { data, error } = await supabase
-        .from('settings')
-        .insert([{
-          ...settings,
-          updated_by: userId
-        }])
-        .select()
-
-      if (error) throw error
-      return data?.[0]
+      return data?.[0] as Settings | undefined
     }
+
+    const { data, error } = await supabase
+      .from('settings')
+      .insert([
+        {
+          ...DEFAULT_SETTINGS,
+          ...settings,
+          updated_by: userId,
+        },
+      ])
+      .select()
+
+    if (error) throw error
+    return data?.[0] as Settings | undefined
   } catch (error) {
     console.error('Error updating settings:', error)
     throw error
@@ -262,6 +562,7 @@ export async function getSuperadminUsers() {
       .from('users')
       .select('id, email, name')
       .eq('role', 'superadmin')
+      .order('name', { ascending: true })
 
     if (error) throw error
     return data || []
@@ -271,17 +572,12 @@ export async function getSuperadminUsers() {
   }
 }
 
-// Search functions
-export async function searchActivities(filters: {
-  date?: string
-  startDate?: string
-  endDate?: string
-  performer?: string
-  instrument?: string
-  system?: string
-  keyword?: string
-}) {
+export async function searchActivities(filters: SearchFilters) {
   try {
+    if (!matchesSearchFilters(filters)) {
+      return getActivities()
+    }
+
     let query = supabase.from('activities').select('*')
 
     if (filters.startDate && filters.endDate) {
@@ -302,24 +598,26 @@ export async function searchActivities(filters: {
       query = query.eq('system', filters.system)
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false })
+    const { data, error } = await query
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    // Client-side keyword search across all fields
-    let results = data || []
+    let results = (data || []) as Activity[]
     if (filters.keyword) {
       const keyword = filters.keyword.toLowerCase()
-      results = results.filter(
-        (activity) =>
-          activity.date.toLowerCase().includes(keyword) ||
-          activity.performer.toLowerCase().includes(keyword) ||
-          activity.system.toLowerCase().includes(keyword) ||
-          activity.instrument.toLowerCase().includes(keyword) ||
-          activity.problem.toLowerCase().includes(keyword) ||
-          activity.action.toLowerCase().includes(keyword) ||
-          activity.comments.toLowerCase().includes(keyword) ||
-          (activity.editedBy && activity.editedBy.toLowerCase().includes(keyword))
+      results = results.filter((activity) =>
+        [
+          activity.date,
+          activity.performer,
+          activity.system,
+          activity.instrument,
+          activity.problem,
+          activity.action,
+          activity.comments ?? '',
+          activity.editedBy ?? '',
+        ].some((field) => String(field).toLowerCase().includes(keyword))
       )
     }
 

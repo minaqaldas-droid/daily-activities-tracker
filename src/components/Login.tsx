@@ -1,49 +1,73 @@
 import React, { useState } from 'react'
-import { User, login, signUp } from '../supabaseClient'
+import { type AuthActionResult } from '../supabaseClient'
 
 interface LoginProps {
-  onLoginSuccess: (user: User) => void
+  onLogin: (email: string, password: string) => Promise<void>
+  onSignUp: (email: string, name: string, password: string) => Promise<AuthActionResult>
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onSignUp }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
+  const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const resetForm = () => {
+    setEmail('')
+    setName('')
+    setPassword('')
+    setConfirmPassword('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setMessage(null)
 
     if (!email || !password) {
-      setError('Email and password are required')
+      setMessage({ type: 'error', text: 'Email and password are required.' })
       return
     }
 
-    if (!isLogin && !name) {
-      setError('Name is required for signup')
+    if (!isLogin && !name.trim()) {
+      setMessage({ type: 'error', text: 'Name is required for signup.' })
       return
     }
 
     if (!isLogin && password !== confirmPassword) {
-      setError('Passwords do not match')
+      setMessage({ type: 'error', text: 'Passwords do not match.' })
       return
     }
 
     try {
       setIsLoading(true)
+
       if (isLogin) {
-        const user = await login(email, password)
-        onLoginSuccess(user)
-      } else {
-        const user = await signUp(email, name, password)
-        onLoginSuccess(user)
+        await onLogin(email.trim(), password)
+        return
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+
+      const result = await onSignUp(email.trim(), name.trim(), password)
+
+      if (result.requiresEmailConfirmation) {
+        setMessage({
+          type: 'success',
+          text: result.message || 'Account created. Check your email to confirm your account.',
+        })
+        setIsLogin(true)
+        setPassword('')
+        setConfirmPassword('')
+        return
+      }
+
+      resetForm()
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Authentication failed.',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -54,10 +78,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       <div className="auth-card">
         <h1>Daily Activities Tracker</h1>
         <p className="auth-subtitle">
-          {isLogin ? 'Sign in to your account' : 'Create a new account'}
+          {isLogin ? 'Sign in with your Supabase account' : 'Create a new account'}
         </p>
 
-        {error && <div className="error-message">{error}</div>}
+        {message && <div className={message.type === 'error' ? 'error-message' : 'success-message'}>{message.text}</div>}
 
         <form onSubmit={handleSubmit}>
           {!isLogin && (
@@ -93,7 +117,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={isLogin ? 'Enter your password' : 'Create a password'}
               disabled={isLoading}
             />
           </div>
@@ -112,29 +136,20 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-full"
-            disabled={isLoading}
-          >
+          <button type="submit" className="btn btn-primary btn-full" disabled={isLoading}>
             {isLoading ? 'Loading...' : isLogin ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
         <div className="auth-toggle">
-          <p>
-            {isLogin ? "Don't have an account?" : 'Already have an account?'}
-          </p>
+          <p>{isLogin ? "Don't have an account?" : 'Already have an account?'}</p>
           <button
             type="button"
             className="btn btn-text"
             onClick={() => {
               setIsLogin(!isLogin)
-              setError('')
-              setEmail('')
-              setPassword('')
-              setName('')
-              setConfirmPassword('')
+              setMessage(null)
+              resetForm()
             }}
           >
             {isLogin ? 'Sign Up' : 'Sign In'}

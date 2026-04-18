@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { User, Settings, getSettings, updateSettings } from '../supabaseClient'
+import React, { useEffect, useState } from 'react'
+import { type Settings, type User, updateSettings } from '../supabaseClient'
 
 interface SuperAdminPanelProps {
   user: User
@@ -28,54 +28,45 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0)
 
   useEffect(() => {
-    // Initialize with current settings passed from parent
-    if (currentSettings) {
-      setWebappName(currentSettings.webapp_name || 'Daily Activities Tracker')
-      setLogoUrl(currentSettings.logo_url || '')
-      setPrimaryColor(currentSettings.primary_color || '#667eea')
-      setPerformerMode(currentSettings.performer_mode || 'manual')
-      if (currentSettings.logo_url) {
-        setPreviewUrl(currentSettings.logo_url)
-      }
-    }
+    setWebappName(currentSettings.webapp_name || 'Daily Activities Tracker')
+    setLogoUrl(currentSettings.logo_url || '')
+    setPrimaryColor(currentSettings.primary_color || '#667eea')
+    setPerformerMode(currentSettings.performer_mode || 'manual')
+    setPreviewUrl(currentSettings.logo_url || null)
   }, [currentSettings])
 
   const handleLogoUrlChange = (url: string) => {
     setLogoUrl(url)
     setUploadProgress(0)
-    // Validate URL format
+
     if (url && !url.match(/^https?:\/\/.+/)) {
       setError('Please enter a valid URL starting with http:// or https://')
       setPreviewUrl(null)
-    } else {
-      setError('')
-      if (url) {
-        setPreviewUrl(url)
-      }
+      return
     }
+
+    setError('')
+    setPreviewUrl(url || null)
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp']
     if (!validTypes.includes(file.type)) {
-      setError('Please select a valid image file (PNG, JPG, SVG, or WebP)')
+      setError('Please select a valid image file (PNG, JPG, SVG, or WebP).')
       return
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB')
+      setError('File size must be less than 5MB.')
       return
     }
 
     setError('')
     setUploadProgress(0)
 
-    // Convert file to base64 data URL
     const reader = new FileReader()
     reader.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -87,10 +78,10 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
       setLogoUrl(dataUrl)
       setPreviewUrl(dataUrl)
       setUploadProgress(100)
-      setTimeout(() => setUploadProgress(0), 1000)
+      window.setTimeout(() => setUploadProgress(0), 1000)
     }
     reader.onerror = () => {
-      setError('Failed to read file')
+      setError('Failed to read file.')
     }
     reader.readAsDataURL(file)
   }
@@ -101,17 +92,13 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
     setSuccess('')
 
     if (!webappName.trim()) {
-      setError('Webapp name is required')
-      return
-    }
-
-    if (!logoUrl.trim()) {
-      setError('Please provide a logo URL or upload a logo file')
+      setError('Webapp name is required.')
       return
     }
 
     try {
       setIsSubmitting(true)
+
       const updatedSettings = await updateSettings(
         {
           webapp_name: webappName.trim(),
@@ -119,19 +106,16 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
           primary_color: primaryColor,
           performer_mode: performerMode,
         },
-        user.id || ''
+        user.id
       )
 
       if (updatedSettings) {
-        setSuccess('Settings updated successfully!')
+        setSuccess('Settings updated successfully.')
         onSettingsUpdate(updatedSettings)
-        setTimeout(() => {
-          onClose()
-        }, 2000)
+        window.setTimeout(onClose, 1500)
       }
     } catch (err) {
-      setError('Failed to update settings')
-      console.error(err)
+      setError(err instanceof Error ? err.message : 'Failed to update settings.')
     } finally {
       setIsSubmitting(false)
     }
@@ -141,7 +125,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
     <div className="modal-overlay">
       <div className="settings-modal">
         <div className="modal-header">
-          <h2>🔧 Superadmin Settings</h2>
+          <h2>Superadmin Settings</h2>
           <button className="modal-close" onClick={onClose}>
             ×
           </button>
@@ -161,7 +145,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
               placeholder="Enter your webapp name"
               disabled={isSubmitting || isLoading}
             />
-            <span className="form-hint">This name will appear in the header</span>
+            <span className="form-hint">This name appears in the header for all users.</span>
           </div>
 
           <div className="form-group">
@@ -172,14 +156,14 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                 className={`tab-option ${logoInputType === 'url' ? 'active' : ''}`}
                 onClick={() => setLogoInputType('url')}
               >
-                🔗 URL
+                URL
               </button>
               <button
                 type="button"
                 className={`tab-option ${logoInputType === 'file' ? 'active' : ''}`}
                 onClick={() => setLogoInputType('file')}
               >
-                📁 Upload File
+                Upload File
               </button>
             </div>
 
@@ -193,7 +177,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                   disabled={isSubmitting || isLoading}
                 />
                 <span className="form-hint">
-                  Enter a public image URL (PNG, JPG, SVG, or WebP)
+                  Optional. Leave blank to hide the logo, or provide a public image URL.
                 </span>
               </>
             ) : (
@@ -211,9 +195,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                       : 'Choose Logo File'}
                   </span>
                 </label>
-                <span className="form-hint">
-                  PNG, JPG, SVG, or WebP (Max 5MB)
-                </span>
+                <span className="form-hint">PNG, JPG, SVG, or WebP. Max 5MB.</span>
               </>
             )}
           </div>
@@ -226,7 +208,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                   src={previewUrl}
                   alt="Logo preview"
                   onError={() => {
-                    setError('Could not load image')
+                    setError('Could not load the selected image.')
                     setPreviewUrl(null)
                   }}
                 />
@@ -253,7 +235,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                 className="color-hex-input"
               />
             </div>
-            <span className="form-hint">Used for buttons, links, and highlighting</span>
+            <span className="form-hint">Used for buttons, links, and highlighting.</span>
           </div>
 
           <div className="form-group">
@@ -269,7 +251,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                   disabled={isSubmitting || isLoading}
                 />
                 <span className="radio-label">
-                  <strong>👤 Manual Entry</strong> - Users can enter performer name manually
+                  <strong>Manual Entry</strong> Users can choose or type the performer name.
                 </span>
               </label>
               <label className="radio-option">
@@ -282,27 +264,23 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                   disabled={isSubmitting || isLoading}
                 />
                 <span className="radio-label">
-                  <strong>🔐 Auto-assign</strong> - Auto-fill with logged-in username
+                  <strong>Auto-assign</strong> The performer is filled from the logged-in user.
                 </span>
               </label>
             </div>
             <span className="form-hint">
-              Choose whether users can manually enter their name or it's auto-filled from their account
+              Choose whether users can manually set the performer or inherit it from their session.
             </span>
           </div>
 
           <div className="form-group">
             <label className="info-box">
-              <strong>Info:</strong> Changes will apply to all users after refresh
+              <strong>Info:</strong> Saved changes apply for all authenticated users after refresh.
             </label>
           </div>
 
           <div className="modal-actions">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSubmitting || isLoading}
-            >
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting || isLoading}>
               {isSubmitting ? 'Saving...' : 'Save Settings'}
             </button>
             <button

@@ -1,12 +1,63 @@
-import React, { useState, useRef } from 'react'
-import * as XLSX from 'xlsx'
-import { Activity, createActivity } from '../supabaseClient'
+import React, { useRef, useState } from 'react'
+import { type Activity, createActivities, createActivity } from '../supabaseClient'
 
 interface ExcelImportProps {
   onImportSuccess: (count: number) => void
   onImportError: (error: string) => void
   isLoading?: boolean
   currentUserName?: string
+}
+
+const IMPORT_CHUNK_SIZE = 100
+
+function formatDate(date: Date) {
+  return date.toISOString().split('T')[0]
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === 'string' ? value.trim() : String(value ?? '').trim()
+}
+
+function normalizeDate(value: unknown) {
+  if (!value) {
+    return formatDate(new Date())
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDate(value)
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30))
+    excelEpoch.setUTCDate(excelEpoch.getUTCDate() + Math.floor(value))
+    return excelEpoch.toISOString().split('T')[0]
+  }
+
+  const text = normalizeText(value)
+  if (!text) {
+    return formatDate(new Date())
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text
+  }
+
+  const parsedDate = new Date(text)
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return formatDate(parsedDate)
+  }
+
+  return formatDate(new Date())
+}
+
+function getChunk<T>(items: T[], size: number) {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+
+  return chunks
 }
 
 export const ExcelImport: React.FC<ExcelImportProps> = ({
@@ -24,7 +75,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     if (!file) return
 
     if (!file.name.toLowerCase().match(/\.(xlsx?|xls)$/)) {
-      onImportError('Please select a valid Excel file (.xlsx or .xls)')
+      onImportError('Please select a valid Excel file (.xlsx or .xls).')
       return
     }
 
@@ -32,91 +83,113 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       setIsImporting(true)
       setImportProgress(0)
 
-      const reader = new FileReader()
-      reader.onload = async (event) => {
+      const workbookData = await file.arrayBuffer()
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.read(workbookData, { type: 'array', cellDates: true })
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+        defval: '',
+        raw: false,
+      })
+
+      if (rows.length === 0) {
+        onImportError('Excel file is empty or has no data rows.')
+        return
+      }
+
+      const activities: Activity[] = []
+      const errorRows: string[] = []
+
+      rows.forEach((row, index) => {
+        const activity: Activity = {
+          date: normalizeDate(row.date ?? row.Date),
+          performer:
+            normalizeText(row.performer ?? row.Performer) || currentUserName || 'Unknown',
+          system: normalizeText(row.system ?? row.System),
+          instrument: normalizeText(
+            row.instrument ?? row.Instrument ?? row['Instrument/Tag']
+          ),
+          problem: normalizeText(row.problem ?? row.Problem ?? row.Issue),
+          action: normalizeText(row.action ?? row.Action ?? row.Resolution),
+          comments: normalizeText(row.comments ?? row.Comments ?? row.Remarks),
+        }
+
+        if (
+          !activity.date ||
+          !activity.performer ||
+          !activity.system ||
+          !activity.instrument ||
+          !activity.problem ||
+          !activity.action
+        ) {
+          errorRows.push(`Row ${index + 2}: Missing required fields.`)
+          return
+        }
+
+        activities.push(activity)
+      })
+
+      if (activities.length === 0) {
+        onImportError(
+          `No valid activities found. ${
+            errorRows.length > 0 ? errorRows.slice(0, 3).join(' ') : ''
+          }`.trim()
+        )
+        return
+      }
+
+      let processedCount = 0
+      let successCount = 0
+
+      for (const chunk of getChunk(activities, IMPORT_CHUNK_SIZE)) {
         try {
-          const data = event.target?.result
-          if (!data) throw new Error('Failed to read file')
+          const insertedRows = await createActivities(chunk)
+          successCount += insertedRows.length
+          processedCount += chunk.length
+          setImportProgress(Math.round((processedCount / activities.length) * 100))
+          continue
+        } catch (bulkError) {
+          console.warn('Bulk import chunk failed, retrying rows individually:', bulkError)
+        }
 
-          const workbook = XLSX.read(data, { type: 'array' })
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-          const jsonData = XLSX.utils.sheet_to_json(worksheet)
-
-          if (jsonData.length === 0) {
-            onImportError('Excel file is empty or has no data rows')
-            setIsImporting(false)
-            return
-          }
-
-          // Validate and transform the data
-          const activities: Activity[] = []
-          let errorRows: string[] = []
-
-          jsonData.forEach((row: any, index: number) => {
-            try {
-              const activity: Activity = {
-                date: row.date || row.Date || new Date().toISOString().split('T')[0],
-                performer: row.performer || row.Performer || currentUserName || 'Unknown',
-                system: row.system || row.System || '',
-                instrument: row.instrument || row.Instrument || row['Instrument/Tag'] || '',
-                problem: row.problem || row.Problem || row['Issue'] || '',
-                action: row.action || row.Action || row['Resolution'] || '',
-                comments: row.comments || row.Comments || row['Remarks'] || '',
-              }
-
-              // Validate required fields
-              if (!activity.date || !activity.performer || !activity.system || !activity.instrument || !activity.problem || !activity.action) {
-                errorRows.push(`Row ${index + 2}: Missing required fields`)
-                return
-              }
-
-              activities.push(activity)
-            } catch (err) {
-              errorRows.push(`Row ${index + 2}: ${err instanceof Error ? err.message : 'Unknown error'}`)
-            }
-          })
-
-          if (activities.length === 0) {
-            onImportError(
-              `No valid activities found. ${errorRows.length > 0 ? `Errors: ${errorRows.slice(0, 3).join('; ')}...` : ''}`
+        for (const activity of chunk) {
+          try {
+            await createActivity(activity)
+            successCount++
+          } catch (rowError) {
+            errorRows.push(
+              `${activity.date} / ${activity.instrument || 'Unknown'}: ${
+                rowError instanceof Error ? rowError.message : 'Unknown error'
+              }`
             )
-            setIsImporting(false)
-            return
+          } finally {
+            processedCount++
+            setImportProgress(Math.round((processedCount / activities.length) * 100))
           }
-
-          // Import activities to database
-          let successCount = 0
-          for (let i = 0; i < activities.length; i++) {
-            try {
-              await createActivity(activities[i])
-              successCount++
-              setImportProgress(Math.round(((i + 1) / activities.length) * 100))
-            } catch (err) {
-              console.error(`Failed to create activity ${i + 1}:`, err)
-            }
-          }
-
-          onImportSuccess(successCount)
-          setImportProgress(0)
-          setIsImporting(false)
-          if (fileInputRef.current) {
-            fileInputRef.current.value = ''
-          }
-
-          if (errorRows.length > 0) {
-            console.warn('Import completed with warnings:', errorRows.slice(0, 5).join('; '))
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to process Excel file'
-          onImportError(message)
-          setIsImporting(false)
         }
       }
 
-      reader.readAsArrayBuffer(file)
+      if (successCount === 0) {
+        onImportError(
+          `Import failed. ${errorRows.length > 0 ? errorRows.slice(0, 3).join(' ') : 'No rows were inserted.'}`.trim()
+        )
+        return
+      }
+
+      onImportSuccess(successCount)
+
+      if (errorRows.length > 0) {
+        console.warn('Import completed with warnings:', errorRows.slice(0, 10).join(' | '))
+      }
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to read file'
+      const message = error instanceof Error ? error.message : 'Failed to process Excel file.'
       onImportError(message)
+    } finally {
+      setImportProgress(0)
       setIsImporting(false)
     }
   }
@@ -124,8 +197,11 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
   return (
     <div className="excel-import-container">
       <div className="excel-import-section">
-        <h3>📤 Import Activities from Excel</h3>
-        <p className="excel-hint">Upload an Excel file to bulk import activities. File should have columns: Date, Performer, System, Instrument, Problem, Action, Comments</p>
+        <h3>Import Activities from Excel</h3>
+        <p className="excel-hint">
+          Upload an Excel file to bulk import activities. Expected columns: Date, Performer,
+          System, Instrument, Problem, Action, Comments.
+        </p>
 
         <div className="excel-input-group">
           <input
@@ -145,10 +221,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         {isImporting && (
           <div className="import-progress">
             <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${importProgress}%` }}
-              ></div>
+              <div className="progress-fill" style={{ width: `${importProgress}%` }}></div>
             </div>
             <p className="progress-text">{importProgress}% - Importing activities...</p>
           </div>
