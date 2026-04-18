@@ -56,7 +56,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             <th className="col-tag">Tag</th>
             <th className="col-problem">Problem</th>
             <th className="col-action">Action</th>
-            <th className="col-actions">Actions</th>
+            <th className="col-actions">Edit/Delete</th>
           </tr>
         </thead>
         <tbody>
