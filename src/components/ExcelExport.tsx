@@ -7,6 +7,10 @@ interface ExcelExportProps {
 }
 
 function isActivityWithinDateRange(activity: Activity, startDate: string, endDate: string) {
+  if (!activity.date) {
+    return false
+  }
+
   const activityDate = new Date(activity.date)
   const start = new Date(startDate)
   const end = new Date(endDate)
@@ -44,7 +48,7 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
         Date: activity.date,
         Performer: activity.performer,
         System: activity.system,
-        Instrument: activity.instrument,
+        Tag: activity.tag,
         Problem: activity.problem,
         Action: activity.action,
         Comments: activity.comments || '',

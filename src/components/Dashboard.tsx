@@ -15,10 +15,10 @@ interface DashboardProps {
 interface DashboardStats {
   totalActivities: number
   myActivities: number
-  uniqueInstruments: number
+  uniqueTags: number
   uniqueSystems: number
   activityByPerformer: Map<string, number>
-  activityByInstrument: Map<string, number>
+  activityByTag: Map<string, number>
   activityBySystem: Map<string, number>
   recentActivities: Activity[]
   todayActivities: number
@@ -37,10 +37,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [stats, setStats] = useState<DashboardStats>({
     totalActivities: 0,
     myActivities: 0,
-    uniqueInstruments: 0,
+    uniqueTags: 0,
     uniqueSystems: 0,
     activityByPerformer: new Map<string, number>(),
-    activityByInstrument: new Map<string, number>(),
+    activityByTag: new Map<string, number>(),
     activityBySystem: new Map<string, number>(),
     recentActivities: [],
     todayActivities: 0,
@@ -50,7 +50,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   useEffect(() => {
     // Calculate statistics
     const activityByPerformer = new Map<string, number>()
-    const activityByInstrument = new Map<string, number>()
+    const activityByTag = new Map<string, number>()
     const activityBySystem = new Map<string, number>()
 
     const today = new Date().toISOString().split('T')[0]
@@ -66,10 +66,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         (activityByPerformer.get(activity.performer) || 0) + 1
       )
 
-      // Count by instrument
-      activityByInstrument.set(
-        activity.instrument,
-        (activityByInstrument.get(activity.instrument) || 0) + 1
+      // Count by tag
+      activityByTag.set(
+        activity.tag,
+        (activityByTag.get(activity.tag) || 0) + 1
       )
 
       // Count by system
@@ -93,10 +93,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setStats({
       totalActivities: activities.length,
       myActivities,
-      uniqueInstruments: activityByInstrument.size,
+      uniqueTags: activityByTag.size,
       uniqueSystems: activityBySystem.size,
       activityByPerformer,
-      activityByInstrument,
+      activityByTag,
       activityBySystem,
       recentActivities,
       todayActivities: todayCount,
@@ -137,8 +137,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="stat-card">
           <div className="stat-icon">🏷️</div>
           <div className="stat-content">
-            <h3>Instruments Used</h3>
-            <p className="stat-value">{stats.uniqueInstruments}</p>
+            <h3>Tags Used</h3>
+            <p className="stat-value">{stats.uniqueTags}</p>
           </div>
         </div>
 
@@ -321,16 +321,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Top Instruments - Horizontal Bar Chart */}
+      {/* Top Tags - Horizontal Bar Chart */}
       <div className="dashboard-section">
-        <h3>🏷️ Top Instruments</h3>
+        <h3>🏷️ Top Tags</h3>
         <div className="chart-list">
-          {Array.from(stats.activityByInstrument.entries())
+          {Array.from(stats.activityByTag.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
-            .map(([instrument, count]) => (
-              <div key={instrument} className="chart-item">
-                <span className="chart-label">{instrument}</span>
+            .map(([tag, count]) => (
+              <div key={tag} className="chart-item">
+                <span className="chart-label">{tag}</span>
                 <div className="chart-bar">
                   <div
                     className="chart-fill"

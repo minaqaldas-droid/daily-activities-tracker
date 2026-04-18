@@ -769,8 +769,8 @@ body {
   margin: 0;
 }
 
-/* Instrument Tag */
-.instrument-tag {
+/* Tag Badge */
+.tag-badge {
   display: inline-block;
   background: #667eea;
   color: white;
@@ -1822,7 +1822,7 @@ body {
   width: 110px;
 }
 
-.col-instrument {
+.col-tag {
   width: 120px;
 }
 
@@ -1860,7 +1860,7 @@ body {
 
 .col-date .date-badge,
 .col-system .system-badge,
-.col-instrument .instrument-tag {
+.col-tag .tag-badge {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1952,7 +1952,7 @@ body {
     width: 90px;
   }
 
-  .col-instrument {
+  .col-tag {
     width: 100px;
   }
 
@@ -2098,7 +2098,7 @@ body {
     width: 70px;
   }
 
-  .col-instrument {
+  .col-tag {
     width: 80px;
   }
 
@@ -2202,7 +2202,7 @@ body {
     width: 60px;
   }
 
-  .col-instrument {
+  .col-tag {
     width: 70px;
   }
 

@@ -8,10 +8,10 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS public.activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  date DATE NOT NULL,
+  date TEXT NOT NULL DEFAULT '',
   performer TEXT NOT NULL,
   system TEXT NOT NULL DEFAULT '',
-  instrument TEXT NOT NULL,
+  tag TEXT NOT NULL DEFAULT '',
   problem TEXT NOT NULL,
   action TEXT NOT NULL,
   comments TEXT NOT NULL DEFAULT '',
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.settings (
 CREATE INDEX IF NOT EXISTS idx_activities_date ON public.activities(date DESC);
 CREATE INDEX IF NOT EXISTS idx_activities_created_at ON public.activities(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activities_performer ON public.activities(performer);
-CREATE INDEX IF NOT EXISTS idx_activities_instrument ON public.activities(instrument);
+CREATE INDEX IF NOT EXISTS idx_activities_tag ON public.activities(tag);
 CREATE INDEX IF NOT EXISTS idx_activities_system ON public.activities(system);
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);

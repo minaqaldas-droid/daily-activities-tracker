@@ -3,12 +3,12 @@
 -- ============================================
 
 ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS system TEXT NOT NULL DEFAULT '';
-ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS instrument TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS tag TEXT NOT NULL DEFAULT '';
 ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS comments TEXT NOT NULL DEFAULT '';
 ALTER TABLE public.activities ADD COLUMN IF NOT EXISTS editedBy TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_activities_system ON public.activities(system);
-CREATE INDEX IF NOT EXISTS idx_activities_instrument ON public.activities(instrument);
+CREATE INDEX IF NOT EXISTS idx_activities_tag ON public.activities(tag);
 
 SELECT column_name, data_type
 FROM information_schema.columns

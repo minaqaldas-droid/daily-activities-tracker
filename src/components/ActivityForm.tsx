@@ -22,7 +22,7 @@ const getInitialFormData = (): Activity => ({
   date: getTodayDate(),
   performer: '',
   system: '',
-  instrument: '',
+  tag: '',
   problem: '',
   action: '',
   comments: '',
@@ -214,14 +214,14 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label htmlFor="instrument">Instrument/Tag *</label>
+          <label htmlFor="tag">Tag *</label>
           <input
             type="text"
-            id="instrument"
-            name="instrument"
-            value={formData.instrument}
+            id="tag"
+            name="tag"
+            value={formData.tag}
             onChange={handleChange}
-            placeholder="e.g. 920TT305, or any relevant tag, PLC Panel, etc."
+            placeholder="e.g. 920TT305, PLC Panel, or any relevant tag"
             required
           />
         </div>

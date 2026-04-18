@@ -427,7 +427,6 @@ function App() {
                   })
                 }}
                 isLoading={isLoading}
-                currentUserName={currentUser.name}
               />
             </Suspense>
           )}

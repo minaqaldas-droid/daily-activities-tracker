@@ -68,7 +68,7 @@ export function useActivities({ currentUserName = '', performerMode = 'manual' }
             date: activity.date,
             performer: options.editingData?.performer || activity.performer,
             system: activity.system,
-            instrument: activity.instrument,
+            tag: activity.tag,
             problem: activity.problem,
             action: activity.action,
             comments: activity.comments,

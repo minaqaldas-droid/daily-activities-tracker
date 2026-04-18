@@ -5,7 +5,6 @@ interface ExcelImportProps {
   onImportSuccess: (result: ExcelImportResult) => void
   onImportError: (error: string) => void
   isLoading?: boolean
-  currentUserName?: string
 }
 
 export interface ExcelImportResult {
@@ -14,23 +13,41 @@ export interface ExcelImportResult {
 }
 
 type ParsedWorksheetRow = Record<string, unknown>
+type MergeRange = { s: { r: number; c: number }; e: { r: number; c: number } }
 
 const IMPORT_CHUNK_SIZE = 100
+const MONTH_LOOKUP: Record<string, number> = {
+  jan: 1,
+  january: 1,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  march: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  jun: 6,
+  june: 6,
+  jul: 7,
+  july: 7,
+  aug: 8,
+  august: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  december: 12,
+}
 
 const COLUMN_ALIASES = {
   date: ['date', 'activitydate', 'workdate'],
   performer: ['performer', 'performedby', 'employee', 'engineer', 'technician', 'operator', 'name'],
   system: ['system', 'unit', 'area', 'department'],
-  instrument: [
-    'instrument',
-    'instrumenttag',
-    'instrumentnumber',
-    'tag',
-    'tagnumber',
-    'tagno',
-    'equipment',
-    'asset',
-  ],
+  tag: ['tag', 'tagnumber', 'tagno', 'instrument', 'instrumenttag', 'instrumentnumber', 'equipment', 'asset'],
   problem: ['problem', 'issue', 'fault', 'description', 'problemstatement'],
   action: ['action', 'actiontaken', 'resolution', 'solution', 'fix', 'remedy', 'correction'],
   comments: ['comments', 'comment', 'remarks', 'remark', 'notes', 'note', 'observations', 'observation'],
@@ -38,14 +55,6 @@ const COLUMN_ALIASES = {
 
 function formatDateParts(year: number, month: number, day: number) {
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
-function formatLocalDate(date: Date) {
-  return formatDateParts(date.getFullYear(), date.getMonth() + 1, date.getDate())
-}
-
-function formatUTCDate(date: Date) {
-  return formatDateParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())
 }
 
 function normalizeText(value: unknown) {
@@ -56,95 +65,67 @@ function normalizeColumnKey(value: unknown) {
   return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function normalizeYear(year: number) {
-  if (year >= 100) {
-    return year
-  }
-
+function normalizeTwoDigitYear(year: number) {
   return year >= 70 ? 1900 + year : 2000 + year
 }
 
 function createDateString(year: number, month: number, day: number) {
-  const normalizedYear = normalizeYear(year)
-  const candidate = new Date(Date.UTC(normalizedYear, month - 1, day))
+  const candidate = new Date(Date.UTC(year, month - 1, day))
 
   if (
-    candidate.getUTCFullYear() !== normalizedYear ||
+    candidate.getUTCFullYear() !== year ||
     candidate.getUTCMonth() !== month - 1 ||
     candidate.getUTCDate() !== day
   ) {
     return ''
   }
 
-  return formatUTCDate(candidate)
-}
-
-function excelSerialToDateString(value: number) {
-  if (!Number.isFinite(value)) {
-    return ''
-  }
-
-  const excelEpoch = new Date(Date.UTC(1899, 11, 30))
-  excelEpoch.setUTCDate(excelEpoch.getUTCDate() + Math.floor(value))
-  return formatUTCDate(excelEpoch)
+  return formatDateParts(year, month, day)
 }
 
 function normalizeDate(value: unknown) {
-  if (!value) {
-    return ''
-  }
-
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return formatLocalDate(value)
-  }
-
-  if (typeof value === 'number') {
-    return excelSerialToDateString(value)
-  }
-
   const text = normalizeText(value)
   if (!text) {
     return ''
   }
 
-  if (/^\d{1,6}(?:\.\d+)?$/.test(text)) {
-    return excelSerialToDateString(Number(text))
-  }
-
-  const compactMatch = text.match(/^(\d{4})(\d{2})(\d{2})$/)
-  if (compactMatch) {
-    return createDateString(Number(compactMatch[1]), Number(compactMatch[2]), Number(compactMatch[3]))
-  }
-
-  const yearFirstMatch = text.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/)
-  if (yearFirstMatch) {
+  const mmDashDdDashYy = text.match(/^(\d{1,2})-(\d{1,2})-(\d{2})$/)
+  if (mmDashDdDashYy) {
     return createDateString(
-      Number(yearFirstMatch[1]),
-      Number(yearFirstMatch[2]),
-      Number(yearFirstMatch[3])
+      normalizeTwoDigitYear(Number(mmDashDdDashYy[3])),
+      Number(mmDashDdDashYy[1]),
+      Number(mmDashDdDashYy[2])
     )
   }
 
-  const yearLastMatch = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/)
-  if (yearLastMatch) {
-    const first = Number(yearLastMatch[1])
-    const second = Number(yearLastMatch[2])
-    const year = Number(yearLastMatch[3])
-
-    if (first > 12 && second <= 12) {
-      return createDateString(year, second, first)
-    }
-
-    if (second > 12 && first <= 12) {
-      return createDateString(year, first, second)
-    }
-
-    return createDateString(year, second, first) || createDateString(year, first, second)
+  // Excel-formatted date cells in the user's workbook are displayed like 2/1/26, 4/1/26, etc.
+  // Treat two-digit year slash dates as M/D/YY so real Excel date cells import correctly.
+  const mmSlashDdSlashYy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/)
+  if (mmSlashDdSlashYy) {
+    return createDateString(
+      normalizeTwoDigitYear(Number(mmSlashDdSlashYy[3])),
+      Number(mmSlashDdSlashYy[1]),
+      Number(mmSlashDdSlashYy[2])
+    )
   }
 
-  const parsedDate = new Date(text)
-  if (!Number.isNaN(parsedDate.getTime())) {
-    return formatLocalDate(parsedDate)
+  const ddSlashMmSlashYyyy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (ddSlashMmSlashYyyy) {
+    return createDateString(
+      Number(ddSlashMmSlashYyyy[3]),
+      Number(ddSlashMmSlashYyyy[2]),
+      Number(ddSlashMmSlashYyyy[1])
+    )
+  }
+
+  const ddMonthNameYyyy = text.match(/^(\d{1,2})-([A-Za-z]{3,9})-(\d{4})$/)
+  if (ddMonthNameYyyy) {
+    const month = MONTH_LOOKUP[ddMonthNameYyyy[2].toLowerCase()]
+    if (!month) {
+      return ''
+    }
+
+    return createDateString(Number(ddMonthNameYyyy[3]), month, Number(ddMonthNameYyyy[1]))
   }
 
   return ''
@@ -162,24 +143,38 @@ function getChunk<T>(items: T[], size: number) {
 
 function getRowValue(row: ParsedWorksheetRow, aliases: readonly string[]) {
   for (const alias of aliases) {
-    const value = row[alias]
-    if (value !== undefined && normalizeText(value) !== '') {
-      return value
+    if (row[alias] !== undefined) {
+      return row[alias]
     }
   }
 
   return ''
 }
 
-function isEmptyWorksheetRow(row: unknown[]) {
-  return row.every((cell) => normalizeText(cell) === '')
+function applyMergedCellValues(rows: unknown[][], merges: MergeRange[]) {
+  merges.forEach(({ s, e }) => {
+    const mergedValue = rows[s.r]?.[s.c] ?? ''
+
+    for (let rowIndex = s.r; rowIndex <= e.r; rowIndex += 1) {
+      if (!rows[rowIndex]) {
+        rows[rowIndex] = []
+      }
+
+      for (let columnIndex = s.c; columnIndex <= e.c; columnIndex += 1) {
+        rows[rowIndex][columnIndex] = mergedValue
+      }
+    }
+  })
+}
+
+function isCompletelyEmptyRow(row: ParsedWorksheetRow) {
+  return Object.values(row).every((value) => normalizeText(value) === '')
 }
 
 export const ExcelImport: React.FC<ExcelImportProps> = ({
   onImportSuccess,
   onImportError,
   isLoading = false,
-  currentUserName = '',
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importProgress, setImportProgress] = useState(0)
@@ -200,11 +195,11 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
 
       const workbookData = await file.arrayBuffer()
       const XLSX = await import('xlsx')
-      const workbook = XLSX.read(workbookData, { type: 'array', cellDates: true })
+      const workbook = XLSX.read(workbookData, { type: 'array', cellDates: false })
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
       const rawRows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
         header: 1,
-        raw: true,
+        raw: false,
         defval: '',
         blankrows: false,
       })
@@ -214,13 +209,15 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         return
       }
 
+      applyMergedCellValues(rawRows, (worksheet['!merges'] as MergeRange[] | undefined) || [])
+
       const [headerRow, ...dataRows] = rawRows
       const normalizedHeaders = (headerRow || []).map((header) => normalizeColumnKey(header))
       const activities: Activity[] = []
       const errorRows: string[] = []
 
-      dataRows.forEach((row, dataIndex) => {
-        if (!Array.isArray(row) || isEmptyWorksheetRow(row)) {
+      dataRows.forEach((row) => {
+        if (!Array.isArray(row)) {
           return
         }
 
@@ -231,40 +228,23 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           return accumulator
         }, {})
 
-        const activity: Activity = {
-          date: normalizeDate(getRowValue(normalizedRow, COLUMN_ALIASES.date)),
-          performer:
-            normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.performer)) ||
-            currentUserName ||
-            'Unknown',
-          system: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.system)),
-          instrument: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.instrument)),
-          problem: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.problem)),
-          action: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.action)),
-          comments: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.comments)),
-        }
-
-        if (
-          !activity.date ||
-          !activity.performer ||
-          !activity.system ||
-          !activity.instrument ||
-          !activity.problem ||
-          !activity.action
-        ) {
-          errorRows.push(`Row ${dataIndex + 2}: Missing or invalid required fields.`)
+        if (isCompletelyEmptyRow(normalizedRow)) {
           return
         }
 
-        activities.push(activity)
+        activities.push({
+          date: normalizeDate(getRowValue(normalizedRow, COLUMN_ALIASES.date)),
+          performer: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.performer)),
+          system: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.system)),
+          tag: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.tag)),
+          problem: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.problem)),
+          action: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.action)),
+          comments: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.comments)),
+        })
       })
 
       if (activities.length === 0) {
-        onImportError(
-          `No valid activities found. ${
-            errorRows.length > 0 ? errorRows.slice(0, 3).join(' ') : ''
-          }`.trim()
-        )
+        onImportError('Excel file is empty or has no activity rows to import.')
         return
       }
 
@@ -285,15 +265,15 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
         for (const activity of chunk) {
           try {
             await createActivity(activity)
-            successCount++
+            successCount += 1
           } catch (rowError) {
             errorRows.push(
-              `${activity.date || 'Unknown date'} / ${activity.instrument || 'Unknown instrument'}: ${
+              `${activity.date || 'Empty date'} / ${activity.tag || 'Empty tag'}: ${
                 rowError instanceof Error ? rowError.message : 'Unknown error'
               }`
             )
           } finally {
-            processedCount++
+            processedCount += 1
             setImportProgress(Math.round((processedCount / activities.length) * 100))
           }
         }
@@ -334,8 +314,9 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       <div className="excel-import-section">
         <h3>Import Activities from Excel</h3>
         <p className="excel-hint">
-          Upload an Excel file to bulk import activities. Supported date inputs include Excel date
-          cells, `YYYY-MM-DD`, `DD/MM/YYYY`, `MM/DD/YYYY`, `YYYY/MM/DD`, and month-name formats.
+          Upload an Excel file to bulk import activities. The `Date` column accepts only
+          `MM-DD-YY`, `M/D/YY` Excel-style dates, `DD/MM/YYYY`, and month-name entries like
+          `14-Apr-2016`. Merged cells are carried down to all rows inside the merged range.
         </p>
 
         <div className="excel-input-group">
@@ -370,7 +351,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <th>Date</th>
                 <th>Performer</th>
                 <th>System</th>
-                <th>Instrument</th>
+                <th>Tag</th>
                 <th>Problem</th>
                 <th>Action</th>
                 <th>Comments</th>
@@ -378,13 +359,40 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
             </thead>
             <tbody>
               <tr>
-                <td>2024-04-15</td>
-                <td>John Doe</td>
+                <td>04-14-16</td>
+                <td>Ahmed Mohamed</td>
                 <td>DCS</td>
-                <td>Sensor A</td>
+                <td>920TT305</td>
+                <td>Add H Alarm</td>
+                <td>Added H Alarm at 100C</td>
+                <td>Now Normal</td>
+              </tr>
+              <tr>
+                <td>2/1/26</td>
+                <td></td>
+                <td>LCS</td>
+                <td>LCS Alarm</td>
+                <td>CH1 S 7R Fault</td>
+                <td>Checked communication card</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>14/04/2016</td>
+                <td></td>
+                <td>DCS</td>
+                <td>920TT305</td>
                 <td>Reading error</td>
-                <td>Recalibrated sensor</td>
-                <td>Normal</td>
+                <td>Checked transmitter</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>14-Apr-2016</td>
+                <td>Sara Ali</td>
+                <td>PLC</td>
+                <td>FY-210</td>
+                <td>Valve response delay</td>
+                <td>Tuned positioner</td>
+                <td>Monitor next shift</td>
               </tr>
             </tbody>
           </table>

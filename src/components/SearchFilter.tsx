@@ -17,7 +17,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
   const [endDate, setEndDate] = useState('')
   const [performer, setPerformer] = useState('')
   const [system, setSystem] = useState('')
-  const [instrument, setInstrument] = useState('')
+  const [tag, setTag] = useState('')
 
   const handleDateModeChange = (nextMode: DateFilterMode) => {
     setDateMode(nextMode)
@@ -38,7 +38,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
     const filters: SearchFilters = {
       keyword: keyword || undefined,
       performer: performer || undefined,
-      instrument: instrument || undefined,
+      tag: tag || undefined,
       system: system || undefined,
     }
 
@@ -61,13 +61,13 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
     setEndDate('')
     setPerformer('')
     setSystem('')
-    setInstrument('')
+    setTag('')
     setDateMode('all')
     await onSearch({})
   }
 
   const hasActiveFilters = Boolean(
-    keyword || singleDate || startDate || endDate || performer || system || instrument
+    keyword || singleDate || startDate || endDate || performer || system || tag
   )
 
   return (
@@ -96,7 +96,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
               className="keyword-input"
             />
             <small>
-              Searches date, performer, system, instrument/tag, problem, action, and comments.
+              Searches date, performer, system, tag, problem, action, and comments.
             </small>
           </div>
         </section>
@@ -232,13 +232,13 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
             </div>
 
             <div className="form-group">
-              <label htmlFor="filterInstrument">Instrument/Tag</label>
+              <label htmlFor="filterTag">Tag</label>
               <input
                 type="text"
-                id="filterInstrument"
-                value={instrument}
-                onChange={(e) => setInstrument(e.target.value)}
-                placeholder="Search instrument or tag..."
+                id="filterTag"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                placeholder="Search tag..."
                 disabled={isLoading}
               />
             </div>

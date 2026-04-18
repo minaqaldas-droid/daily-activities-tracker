@@ -52,7 +52,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             <th className="col-date">Date</th>
             <th className="col-performer">Performer</th>
             <th className="col-system">System</th>
-            <th className="col-instrument">Instrument/Tag</th>
+            <th className="col-tag">Tag</th>
             <th className="col-problem">Problem</th>
             <th className="col-action">Action</th>
             <th className="col-actions">Actions</th>
@@ -76,8 +76,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                   <td className="col-system">
                     <span className="system-badge">{activity.system}</span>
                   </td>
-                  <td className="col-instrument">
-                    <span className="instrument-tag">{activity.instrument}</span>
+                  <td className="col-tag">
+                    <span className="tag-badge">{activity.tag}</span>
                   </td>
                   <td className="col-problem">
                     <div className="truncate">{activity.problem}</div>

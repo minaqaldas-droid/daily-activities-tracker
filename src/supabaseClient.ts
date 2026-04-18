@@ -31,7 +31,7 @@ export interface Activity {
   date: string
   performer: string
   system: string
-  instrument: string
+  tag: string
   problem: string
   action: string
   comments: string
@@ -63,7 +63,7 @@ export interface SearchFilters {
   startDate?: string
   endDate?: string
   performer?: string
-  instrument?: string
+  tag?: string
   system?: string
   keyword?: string
 }
@@ -228,6 +228,21 @@ function getFormattedActivity(activity: Activity) {
   }
 }
 
+function normalizeActivity(activity: Partial<Activity>): Activity {
+  return {
+    id: activity.id,
+    date: activity.date ?? '',
+    performer: activity.performer ?? '',
+    system: activity.system ?? '',
+    tag: activity.tag ?? '',
+    problem: activity.problem ?? '',
+    action: activity.action ?? '',
+    comments: activity.comments ?? '',
+    editedBy: activity.editedBy ?? null,
+    created_at: activity.created_at,
+  }
+}
+
 function matchesSearchFilters(filters: SearchFilters) {
   return Object.values(filters).some((value) => Boolean(value))
 }
@@ -278,7 +293,7 @@ export async function getActivities() {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return (data || []) as Activity[]
+    return (data || []).map((activity) => normalizeActivity(activity as Partial<Activity>))
   } catch (error) {
     console.error('Error fetching activities:', error)
     throw error
@@ -293,7 +308,7 @@ export async function createActivity(activity: Activity) {
       .select()
 
     if (error) throw error
-    return data?.[0] as Activity | undefined
+    return data?.[0] ? normalizeActivity(data[0] as Partial<Activity>) : undefined
   } catch (error) {
     console.error('Error creating activity:', error)
     throw error
@@ -332,7 +347,7 @@ export async function updateActivity(id: string, activity: Partial<Activity>) {
       throw new Error(`Update failed: ${errorMessage}`)
     }
 
-    return data?.[0] as Activity | undefined
+    return data?.[0] ? normalizeActivity(data[0] as Partial<Activity>) : undefined
   } catch (error) {
     console.error('Error updating activity:', error)
     throw error
@@ -441,7 +456,7 @@ export async function getActivitiesByUser(userName: string) {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return (data || []) as Activity[]
+    return (data || []).map((activity) => normalizeActivity(activity as Partial<Activity>))
   } catch (error) {
     console.error('Error fetching user activities:', error)
     throw error
@@ -599,6 +614,11 @@ export async function searchActivities(filters: SearchFilters) {
     }
 
     let query = supabase.from('activities').select('*')
+    const hasDateFilters = Boolean(filters.date || filters.startDate || filters.endDate)
+
+    if (hasDateFilters) {
+      query = query.neq('date', '')
+    }
 
     if (filters.date) {
       query = query.eq('date', filters.date)
@@ -616,8 +636,8 @@ export async function searchActivities(filters: SearchFilters) {
       query = query.ilike('performer', `%${filters.performer}%`)
     }
 
-    if (filters.instrument) {
-      query = query.ilike('instrument', `%${filters.instrument}%`)
+    if (filters.tag) {
+      query = query.ilike('tag', `%${filters.tag}%`)
     }
 
     if (filters.system) {
@@ -630,7 +650,7 @@ export async function searchActivities(filters: SearchFilters) {
 
     if (error) throw error
 
-    let results = (data || []) as Activity[]
+    let results = (data || []).map((activity) => normalizeActivity(activity as Partial<Activity>))
     if (filters.keyword) {
       const keyword = filters.keyword.toLowerCase()
       results = results.filter((activity) =>
@@ -638,7 +658,7 @@ export async function searchActivities(filters: SearchFilters) {
           activity.date,
           activity.performer,
           activity.system,
-          activity.instrument,
+          activity.tag,
           activity.problem,
           activity.action,
           activity.comments ?? '',
