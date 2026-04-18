@@ -210,7 +210,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           name="instrument"
           value={formData.instrument}
           onChange={handleChange}
-          placeholder="e.g., Machine A, Tool #123, Device X"
+          placeholder="e.g. 920TT305, or any relevant tag, PLC Panel, etc."
           required
         />
       </div>

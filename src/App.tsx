@@ -238,7 +238,7 @@ function App() {
               )}
               <div>
                 <h1>{settings.webapp_name}</h1>
-                <p>Track your daily work activities with problems, actions, and comments.</p>
+                <p>Track your daily work activities.</p>
               </div>
             </div>
           </div>
