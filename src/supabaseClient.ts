@@ -44,6 +44,7 @@ export interface User {
   email: string
   name: string
   role: 'user' | 'superadmin'
+  avatar_url?: string
   created_at?: string
 }
 
@@ -77,6 +78,7 @@ export interface UpdateUserDetailsInput {
   name: string
   email: string
   password?: string
+  avatarUrl?: string
 }
 
 export interface UpdateUserDetailsResult {
@@ -100,12 +102,22 @@ const DEFAULT_SETTINGS: Settings = {
   performer_mode: 'manual',
 }
 
-function normalizeUserProfile(profile: UserProfileRow): User {
+function getMetadataAvatar(authUser: SupabaseAuthUser) {
+  const metadataAvatar =
+    typeof authUser.user_metadata?.avatar_url === 'string'
+      ? authUser.user_metadata.avatar_url.trim()
+      : ''
+
+  return metadataAvatar
+}
+
+function normalizeUserProfile(profile: UserProfileRow, avatarUrl?: string): User {
   return {
     id: profile.id,
     email: profile.email,
     name: profile.name,
     role: profile.role === 'superadmin' ? 'superadmin' : 'user',
+    avatar_url: avatarUrl || undefined,
     created_at: profile.created_at,
   }
 }
@@ -179,11 +191,13 @@ async function upsertUserProfile(profile: User) {
 
 async function syncUserProfile(authUser: SupabaseAuthUser) {
   const existingProfile = await getUserProfileById(authUser.id)
+  const metadataAvatar = getMetadataAvatar(authUser)
   const desiredProfile: User = {
     id: authUser.id,
     email: authUser.email ?? existingProfile?.email ?? '',
     name: existingProfile?.name || getMetadataName(authUser),
     role: existingProfile?.role ?? 'user',
+    avatar_url: metadataAvatar || existingProfile?.avatar_url,
     created_at: existingProfile?.created_at,
   }
 
@@ -193,10 +207,17 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
     existingProfile.name === desiredProfile.name &&
     existingProfile.role === desiredProfile.role
   ) {
-    return existingProfile
+    return {
+      ...existingProfile,
+      avatar_url: desiredProfile.avatar_url,
+    }
   }
 
-  return upsertUserProfile(desiredProfile)
+  const updatedProfile = await upsertUserProfile(desiredProfile)
+  return {
+    ...updatedProfile,
+    avatar_url: desiredProfile.avatar_url,
+  }
 }
 
 function getFormattedActivity(activity: Activity) {
@@ -434,6 +455,7 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
   try {
     const trimmedName = details.name.trim()
     const trimmedEmail = details.email.trim()
+    const trimmedAvatarUrl = details.avatarUrl?.trim() || ''
 
     const {
       data: { user: authUser },
@@ -449,6 +471,7 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
       data: {
         ...authUser.user_metadata,
         name: trimmedName,
+        avatar_url: trimmedAvatarUrl || null,
       },
     }
 
@@ -483,7 +506,7 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
     if (profileError) throw profileError
 
     return {
-      user: normalizeUserProfile(updatedProfile),
+      user: normalizeUserProfile(updatedProfile, getMetadataAvatar(updatedAuthUser) || trimmedAvatarUrl),
       emailChangePending,
       pendingEmail: emailChangePending ? trimmedEmail : undefined,
     }

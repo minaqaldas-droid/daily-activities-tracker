@@ -22,6 +22,7 @@ const ExcelExport = lazy(() =>
 
 type AppView = 'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'
 type AppMessage = { type: 'success' | 'error'; text: string } | null
+const SIDEBAR_EXPANDED_STORAGE_KEY = 'daily-activities-tracker:sidebar-expanded'
 
 function App() {
   const { currentUser, isAuthLoading, login, signUp, logout, setCurrentUser } = useAuth()
@@ -47,6 +48,13 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false)
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(SIDEBAR_EXPANDED_STORAGE_KEY) === 'true'
+  })
 
   useEffect(() => {
     if (!currentUser) {
@@ -88,6 +96,10 @@ function App() {
     const timer = window.setTimeout(() => setMessage(null), 3000)
     return () => window.clearTimeout(timer)
   }, [message])
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_EXPANDED_STORAGE_KEY, String(isSidebarExpanded))
+  }, [isSidebarExpanded])
 
   const handleLogin = async (email: string, password: string) => {
     await login(email, password)
@@ -205,11 +217,13 @@ function App() {
   }
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
       <Sidebar
         currentUser={currentUser}
         currentView={currentView}
         onViewChange={setCurrentView}
+        isExpanded={isSidebarExpanded}
+        onToggleExpand={() => setIsSidebarExpanded((current) => !current)}
         onSettingsClick={() => setShowAccountSettings(true)}
         onAdminClick={() => setShowSuperAdminPanel(true)}
         onLogout={handleLogout}
