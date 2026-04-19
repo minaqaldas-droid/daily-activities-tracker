@@ -3,6 +3,13 @@ import { ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
 import { Activity } from '../supabaseClient'
 import { ActivityList } from './ActivityList'
 
+export interface DashboardActivityRequest {
+  title: string
+  description: string
+  activities: Activity[]
+  exportFilename?: string
+}
+
 interface DashboardProps {
   activities: Activity[]
   performerName: string
@@ -11,6 +18,7 @@ interface DashboardProps {
   isLoading?: boolean
   canDelete?: boolean
   onDeleteDenied?: () => void
+  onOpenActivityResults?: (request: DashboardActivityRequest) => void
 }
 
 interface DashboardStats {
@@ -75,18 +83,35 @@ function createActivityTypeChartData(source: Map<string, number>) {
   return data.sort((a, b) => b.value - a.value)
 }
 
+function handleDashboardCardKeyDown(
+  event: React.KeyboardEvent<HTMLElement>,
+  onOpen?: () => void
+) {
+  if (!onOpen) {
+    return
+  }
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    onOpen()
+  }
+}
+
 function PieChartCard({
   icon,
   title,
   data,
   total,
+  onOpen,
 }: {
   icon: string
   title: string
   data: ChartDatum[]
   total: number
+  onOpen?: () => void
 }) {
   const hasData = total > 0 && data.length > 0
+  const isInteractive = Boolean(onOpen)
 
   let currentAngle = 0
   const slices = data.map((item, index) => {
@@ -116,7 +141,13 @@ function PieChartCard({
   })
 
   return (
-    <section className="dashboard-section dashboard-chart-card">
+    <section
+      className={`dashboard-section dashboard-chart-card ${isInteractive ? 'dashboard-card-actionable' : ''}`}
+      onClick={onOpen}
+      onKeyDown={(event) => handleDashboardCardKeyDown(event, onOpen)}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+    >
       <h3 className="dashboard-section-title">
         <span className="dashboard-section-icon" aria-hidden="true">
           {icon}
@@ -161,16 +192,25 @@ function BarChartCard({
   icon,
   title,
   data,
+  onOpen,
 }: {
   icon: string
   title: string
   data: ChartDatum[]
+  onOpen?: () => void
 }) {
   const hasData = data.length > 0
   const maxValue = hasData ? data[0].value : 0
+  const isInteractive = Boolean(onOpen)
 
   return (
-    <section className="dashboard-section dashboard-chart-card">
+    <section
+      className={`dashboard-section dashboard-chart-card ${isInteractive ? 'dashboard-card-actionable' : ''}`}
+      onClick={onOpen}
+      onKeyDown={(event) => handleDashboardCardKeyDown(event, onOpen)}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+    >
       <h3 className="dashboard-section-title">
         <span className="dashboard-section-icon" aria-hidden="true">
           {icon}
@@ -213,6 +253,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isLoading = false,
   canDelete = true,
   onDeleteDenied,
+  onOpenActivityResults,
 }) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalActivities: 0,
@@ -277,6 +318,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const performerChartData = createChartData(stats.activityByPerformer)
   const activityTypeChartData = createActivityTypeChartData(stats.activityByType)
   const tagChartData = createChartData(stats.activityByTag).slice(0, 10)
+  const myActivitiesList = activities.filter((activity) => activity.performer === performerName)
+  const activitiesWithSystems = activities.filter((activity) => Boolean(activity.system))
+  const activitiesWithTags = activities.filter((activity) => Boolean(activity.tag))
+  const activitiesWithPerformers = activities.filter((activity) => Boolean(activity.performer))
+  const thisWeekActivitiesList = activities.filter((activity) => activity.date >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+
+  const openActivityResults = (request: DashboardActivityRequest) => {
+    onOpenActivityResults?.(request)
+  }
 
   return (
     <div className="dashboard">
@@ -288,7 +338,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </h2>
 
       <div className="stats-grid">
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '📈 Total Activities',
+              description: `Showing all ${activities.length} recorded activities.`,
+              activities,
+              exportFilename: 'Dashboard_Total_Activities.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '📈 Total Activities',
+                description: `Showing all ${activities.length} recorded activities.`,
+                activities,
+                exportFilename: 'Dashboard_Total_Activities.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">📈</div>
           <div className="stat-content">
             <h3>Total Activities</h3>
@@ -296,7 +368,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '👤 Your Activities',
+              description: `Showing activities performed by ${performerName}.`,
+              activities: myActivitiesList,
+              exportFilename: 'Dashboard_My_Activities.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '👤 Your Activities',
+                description: `Showing activities performed by ${performerName}.`,
+                activities: myActivitiesList,
+                exportFilename: 'Dashboard_My_Activities.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">👤</div>
           <div className="stat-content">
             <h3>Your Activities</h3>
@@ -304,7 +398,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '⚙️ Systems Covered',
+              description: 'Showing activities that include a system value.',
+              activities: activitiesWithSystems,
+              exportFilename: 'Dashboard_Systems_Covered.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '⚙️ Systems Covered',
+                description: 'Showing activities that include a system value.',
+                activities: activitiesWithSystems,
+                exportFilename: 'Dashboard_Systems_Covered.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">⚙️</div>
           <div className="stat-content">
             <h3>Systems Covered</h3>
@@ -312,7 +428,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '🏷️ Tags Used',
+              description: 'Showing activities that include a tag value.',
+              activities: activitiesWithTags,
+              exportFilename: 'Dashboard_Tags_Used.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '🏷️ Tags Used',
+                description: 'Showing activities that include a tag value.',
+                activities: activitiesWithTags,
+                exportFilename: 'Dashboard_Tags_Used.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">🏷️</div>
           <div className="stat-content">
             <h3>Tags Used</h3>
@@ -320,7 +458,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '👥 Team Members',
+              description: 'Showing activities with performer information across the team.',
+              activities: activitiesWithPerformers,
+              exportFilename: 'Dashboard_Team_Activities.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '👥 Team Members',
+                description: 'Showing activities with performer information across the team.',
+                activities: activitiesWithPerformers,
+                exportFilename: 'Dashboard_Team_Activities.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">👥</div>
           <div className="stat-content">
             <h3>Team Members</h3>
@@ -328,7 +488,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="stat-card">
+        <div
+          className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
+          onClick={() =>
+            openActivityResults({
+              title: '📅 This Week Activities',
+              description: 'Showing activities from the last 7 days.',
+              activities: thisWeekActivitiesList,
+              exportFilename: 'Dashboard_This_Week_Activities.xlsx',
+            })
+          }
+          onKeyDown={(event) =>
+            handleDashboardCardKeyDown(event, () =>
+              openActivityResults({
+                title: '📅 This Week Activities',
+                description: 'Showing activities from the last 7 days.',
+                activities: thisWeekActivitiesList,
+                exportFilename: 'Dashboard_This_Week_Activities.xlsx',
+              })
+            )
+          }
+          role={onOpenActivityResults ? 'button' : undefined}
+          tabIndex={onOpenActivityResults ? 0 : undefined}
+        >
           <div className="stat-icon">📅</div>
           <div className="stat-content">
             <h3>This Week Activities</h3>
@@ -343,20 +525,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
           title="Activities by Type"
           data={activityTypeChartData}
           total={stats.totalActivities}
+          onOpen={() =>
+            openActivityResults({
+              title: '🧰 Activities by Type',
+              description: 'Showing the activities represented in the activity type breakdown.',
+              activities,
+              exportFilename: 'Dashboard_Activities_By_Type.xlsx',
+            })
+          }
         />
         <PieChartCard
           icon="👥"
           title="Activities by Performer"
           data={performerChartData}
           total={stats.totalActivities}
+          onOpen={() =>
+            openActivityResults({
+              title: '👥 Activities by Performer',
+              description: 'Showing the activities represented in the performer breakdown.',
+              activities,
+              exportFilename: 'Dashboard_Activities_By_Performer.xlsx',
+            })
+          }
         />
         <PieChartCard
           icon="⚙️"
           title="Activities by System"
           data={systemChartData}
           total={stats.totalActivities}
+          onOpen={() =>
+            openActivityResults({
+              title: '⚙️ Activities by System',
+              description: 'Showing the activities represented in the system breakdown.',
+              activities,
+              exportFilename: 'Dashboard_Activities_By_System.xlsx',
+            })
+          }
         />
-        <BarChartCard icon="🏷️" title="Top Tags" data={tagChartData} />
+        <BarChartCard
+          icon="🏷️"
+          title="Top Tags"
+          data={tagChartData}
+          onOpen={() =>
+            openActivityResults({
+              title: '🏷️ Top Tags',
+              description: 'Showing the activities behind the top tag counts.',
+              activities: activitiesWithTags,
+              exportFilename: 'Dashboard_Top_Tags.xlsx',
+            })
+          }
+        />
       </div>
 
       {stats.recentActivities.length > 0 && onEdit && onDelete && (

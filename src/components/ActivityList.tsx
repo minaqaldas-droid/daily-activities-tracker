@@ -14,6 +14,7 @@ interface ActivityListProps {
   isLoading?: boolean
   canDelete?: boolean
   onDeleteDenied?: () => void
+  emptyMessage?: string
 }
 
 export const ActivityList: React.FC<ActivityListProps> = ({
@@ -23,6 +24,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   isLoading = false,
   canDelete = true,
   onDeleteDenied,
+  emptyMessage = 'No activities recorded yet. Start by adding your first activity!',
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -45,7 +47,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   if (activities.length === 0) {
     return (
       <div className="empty-state">
-        <p>No activities recorded yet. Start by adding your first activity!</p>
+        <p>{emptyMessage}</p>
       </div>
     )
   }

@@ -2,7 +2,8 @@ import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { AccountSettings } from './components/AccountSettings'
 import { ActivityForm } from './components/ActivityForm'
 import { ActivityList } from './components/ActivityList'
-import { Dashboard } from './components/Dashboard'
+import { ActivityResultsPopup } from './components/ActivityResultsPopup'
+import { Dashboard, type DashboardActivityRequest } from './components/Dashboard'
 import { Login } from './components/Login'
 import { SearchFilter } from './components/SearchFilter'
 import { Sidebar } from './components/Sidebar'
@@ -22,9 +23,21 @@ const ExcelExport = lazy(() =>
 
 type AppView = 'dashboard' | 'add' | 'edit' | 'search' | 'import' | 'export'
 type AppMessage = { type: 'success' | 'error'; text: string } | null
+
+interface ResultsPopupState {
+  title: string
+  description: string
+  activities: Activity[]
+  exportFilename: string
+}
+
 const SIDEBAR_EXPANDED_STORAGE_KEY = 'daily-activities-tracker:sidebar-expanded'
 const DELETE_RESTRICTED_MESSAGE = 'Only Super Admin users can delete activities.'
 const IMPORT_RESTRICTED_MESSAGE = 'Only Super Admin users can access Excel import.'
+
+function hasSearchFilters(filters: SearchFilters) {
+  return Object.values(filters).some((value) => Boolean(value))
+}
 
 function App() {
   const { currentUser, isAuthLoading, login, signUp, logout, setCurrentUser } = useAuth()
@@ -50,6 +63,7 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showSuperAdminPanel, setShowSuperAdminPanel] = useState(false)
+  const [resultsPopup, setResultsPopup] = useState<ResultsPopupState | null>(null)
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -66,6 +80,7 @@ function App() {
       setCurrentView('dashboard')
       setShowAccountSettings(false)
       setShowSuperAdminPanel(false)
+      setResultsPopup(null)
       return
     }
 
@@ -104,6 +119,13 @@ function App() {
   }, [isSidebarExpanded])
 
   const isSuperAdmin = currentUser?.role === 'superadmin'
+
+  const buildSearchResultsPopup = (sourceActivities: Activity[]): ResultsPopupState => ({
+    title: '🔎 Search Results',
+    description: `Showing ${sourceActivities.length} activit${sourceActivities.length === 1 ? 'y' : 'ies'} matching the current filters.`,
+    activities: sourceActivities,
+    exportFilename: 'Search_Results.xlsx',
+  })
 
   const handleLogin = async (email: string, password: string) => {
     await login(email, password)
@@ -148,6 +170,7 @@ function App() {
   }
 
   const handleEditActivity = (activity: Activity) => {
+    setResultsPopup(null)
     setEditingId(activity.id || null)
     setEditingData(activity)
     setCurrentView('edit')
@@ -162,6 +185,14 @@ function App() {
 
     try {
       await removeActivity(id)
+      setResultsPopup((prev) =>
+        prev
+          ? {
+              ...prev,
+              activities: prev.activities.filter((activity) => activity.id !== id),
+            }
+          : null
+      )
       setMessage({ type: 'success', text: 'Activity deleted successfully.' })
     } catch (error) {
       setMessage({
@@ -173,7 +204,13 @@ function App() {
 
   const handleSearch = async (filters: SearchFilters) => {
     try {
-      await runSearch(filters)
+      const results = await runSearch(filters)
+
+      if (hasSearchFilters(filters)) {
+        setResultsPopup(buildSearchResultsPopup(results))
+      } else {
+        setResultsPopup(null)
+      }
     } catch (error) {
       setMessage({
         type: 'error',
@@ -210,9 +247,35 @@ function App() {
     setMessage({ type: 'success', text: 'Settings updated successfully.' })
   }
 
+  const handleOpenDashboardResults = (request: DashboardActivityRequest) => {
+    setResultsPopup({
+      title: request.title,
+      description: request.description,
+      activities: request.activities,
+      exportFilename: request.exportFilename || `${request.title.replace(/\s+/g, '_')}.xlsx`,
+    })
+  }
+
   const handleViewChange = (view: AppView) => {
+    setResultsPopup(null)
+
     if (view === 'import' && !isSuperAdmin) {
       setMessage({ type: 'error', text: IMPORT_RESTRICTED_MESSAGE })
+      return
+    }
+
+    if (view === 'search') {
+      setCurrentView(view)
+      void runSearch({})
+        .then(() => {
+          setResultsPopup(null)
+        })
+        .catch((error) => {
+          setMessage({
+            type: 'error',
+            text: error instanceof Error ? error.message : 'Failed to prepare latest activities.',
+          })
+        })
       return
     }
 
@@ -233,6 +296,9 @@ function App() {
   if (!currentUser) {
     return <Login onLogin={handleLogin} onSignUp={handleSignUp} />
   }
+
+  const latestSearchActivities = activities.slice(0, 10)
+  const searchResultsPopupState = buildSearchResultsPopup(filteredActivities)
 
   return (
     <div className={`app-layout ${isSidebarExpanded ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
@@ -298,34 +364,21 @@ function App() {
                 isLoading={isLoading}
                 canDelete={isSuperAdmin}
                 onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
+                onOpenActivityResults={handleOpenDashboardResults}
               />
             </div>
           )}
 
           {currentView === 'add' && (
-            <>
-              <div className="form-section">
-                <h2>Add New Activity</h2>
-                <ActivityForm
-                  onSubmit={handleAddOrUpdateActivity}
-                  isLoading={isLoading}
-                  performerMode={settings.performer_mode || 'manual'}
-                  currentUserName={currentUser.name}
-                />
-              </div>
-
-              <div className="list-section">
-                <h2>📋 Recent Activities</h2>
-                <ActivityList
-                  activities={activities.slice(0, 10)}
-                  onEdit={handleEditActivity}
-                  onDelete={handleDeleteActivity}
-                  isLoading={isLoading}
-                  canDelete={isSuperAdmin}
-                  onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
-                />
-              </div>
-            </>
+            <div className="form-section">
+              <h2>Add New Activity</h2>
+              <ActivityForm
+                onSubmit={handleAddOrUpdateActivity}
+                isLoading={isLoading}
+                performerMode={settings.performer_mode || 'manual'}
+                currentUserName={currentUser.name}
+              />
+            </div>
           )}
 
           {currentView === 'edit' && editingId && editingData ? (
@@ -345,9 +398,9 @@ function App() {
               </div>
 
               <div className="list-section">
-                <h2>All Activities</h2>
+                <h2>Latest 10 Activities</h2>
                 <ActivityList
-                  activities={activities}
+                  activities={activities.slice(0, 10)}
                   onEdit={handleEditActivity}
                   onDelete={handleDeleteActivity}
                   isLoading={isLoading}
@@ -371,21 +424,43 @@ function App() {
                 <SearchFilter onSearch={handleSearch} isLoading={isLoading} />
               </div>
 
-              {searchApplied && (
-                <div className="search-info">Found {filteredActivities.length} activit{filteredActivities.length === 1 ? 'y' : 'ies'}.</div>
-              )}
+              {searchApplied ? (
+                <div className="list-section search-results-launcher">
+                  <h2>{searchResultsPopupState.title}</h2>
+                  <p>{searchResultsPopupState.description}</p>
 
-              <div className="list-section">
-                <h2>Search Results ({filteredActivities.length})</h2>
-                <ActivityList
-                  activities={filteredActivities}
-                  onEdit={handleEditActivity}
-                  onDelete={handleDeleteActivity}
-                  isLoading={isLoading}
-                  canDelete={isSuperAdmin}
-                  onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
-                />
-              </div>
+                  <div className="search-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setResultsPopup(searchResultsPopupState)}
+                    >
+                      Reopen Results Popup
+                    </button>
+                    <span className="search-results-count">
+                      {searchResultsPopupState.activities.length} activit
+                      {searchResultsPopupState.activities.length === 1 ? 'y' : 'ies'} ready
+                    </span>
+                  </div>
+
+                  <div className="search-info">
+                    Found {filteredActivities.length} activit{filteredActivities.length === 1 ? 'y' : 'ies'}.
+                  </div>
+                </div>
+              ) : (
+                <div className="list-section">
+                  <h2>Latest 10 Activities</h2>
+                  <ActivityList
+                    activities={latestSearchActivities}
+                    onEdit={handleEditActivity}
+                    onDelete={handleDeleteActivity}
+                    isLoading={isLoading}
+                    canDelete={isSuperAdmin}
+                    onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
+                    emptyMessage="No activities available yet."
+                  />
+                </div>
+              )}
             </>
           )}
 
@@ -443,6 +518,27 @@ function App() {
             </Suspense>
           )}
         </div>
+
+        <ActivityResultsPopup
+          isOpen={Boolean(resultsPopup)}
+          title={resultsPopup?.title || ''}
+          description={resultsPopup?.description}
+          activities={resultsPopup?.activities || []}
+          exportFilename={resultsPopup?.exportFilename}
+          onClose={() => setResultsPopup(null)}
+          onEdit={handleEditActivity}
+          onDelete={handleDeleteActivity}
+          isLoading={isLoading}
+          canDelete={isSuperAdmin}
+          onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
+          onExportSuccess={(text) => setMessage({ type: 'success', text })}
+          onExportError={(text) =>
+            setMessage({
+              type: 'error',
+              text: text.startsWith('Failed') ? text : `Export failed: ${text}`,
+            })
+          }
+        />
       </div>
     </div>
   )

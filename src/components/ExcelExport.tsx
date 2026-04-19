@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { type Activity } from '../supabaseClient'
+import { exportActivitiesToExcel } from '../utils/excel'
 
 interface ExcelExportProps {
   activities: Activity[]
@@ -42,44 +43,12 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
 
     try {
       setIsPreparing(true)
-
-      const XLSX = await import('xlsx')
-      const exportData = dataToExport.map((activity) => ({
-        Date: activity.date,
-        Performer: activity.performer,
-        'Activity Type': activity.activityType || '',
-        System: activity.system,
-        Tag: activity.tag,
-        Problem: activity.problem,
-        Action: activity.action,
-        Comments: activity.comments || '',
-        'Edited By': activity.editedBy || '',
-        'Created At': activity.created_at || '',
-      }))
-
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Activities')
-
-      worksheet['!cols'] = [
-        { wch: 12 },
-        { wch: 18 },
-        { wch: 24 },
-        { wch: 12 },
-        { wch: 16 },
-        { wch: 30 },
-        { wch: 30 },
-        { wch: 25 },
-        { wch: 18 },
-        { wch: 22 },
-      ]
-
-      const filename =
-        exportFormat === 'dateRange'
-          ? `Activities_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
-          : `Activities_${new Date().toISOString().split('T')[0]}.xlsx`
-
-      XLSX.writeFile(workbook, filename)
+      await exportActivitiesToExcel(dataToExport, {
+        filename:
+          exportFormat === 'dateRange'
+            ? `Activities_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
+            : `Activities_${new Date().toISOString().split('T')[0]}.xlsx`,
+      })
     } finally {
       setIsPreparing(false)
     }
