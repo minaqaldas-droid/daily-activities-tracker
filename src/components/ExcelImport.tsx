@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { normalizeImportedActivityType } from '../constants/activityTypes'
 import { type Activity, createActivities, createActivity } from '../supabaseClient'
 import { parseImportedDate } from '../utils/date'
 
@@ -22,6 +23,7 @@ const COLUMN_ALIASES = {
   date: ['date', 'activitydate', 'workdate'],
   performer: ['performer', 'performedby', 'employee', 'engineer', 'technician', 'operator', 'name'],
   system: ['system', 'unit', 'area', 'department'],
+  activityType: ['activitytype', 'type', 'maintenancetype', 'worktype', 'jobtype', 'category'],
   tag: ['tag', 'tagnumber', 'tagno', 'instrument', 'instrumenttag', 'instrumentnumber', 'equipment', 'asset'],
   problem: ['problem', 'issue', 'fault', 'description', 'problemstatement'],
   action: ['action', 'actiontaken', 'resolution', 'solution', 'fix', 'remedy', 'correction'],
@@ -159,10 +161,23 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           return
         }
 
+        const rawActivityType = normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.activityType))
+        const activityType = normalizeImportedActivityType(rawActivityType)
+
+        if (rawActivityType && !activityType) {
+          errorRows.push(
+            `Invalid activity type "${rawActivityType}" for ${
+              normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.date)) || 'Empty date'
+            } / ${normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.tag)) || 'Empty tag'}`
+          )
+          return
+        }
+
         activities.push({
           date: normalizeDate(getRowValue(normalizedRow, COLUMN_ALIASES.date)),
           performer: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.performer)),
           system: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.system)),
+          activityType,
           tag: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.tag)),
           problem: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.problem)),
           action: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.action)),
@@ -171,7 +186,11 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
       })
 
       if (activities.length === 0) {
-        onImportError('Excel file is empty or has no activity rows to import.')
+        onImportError(
+          errorRows.length > 0
+            ? `Import failed. ${errorRows.slice(0, 3).join(' ')}`
+            : 'Excel file is empty or has no activity rows to import.'
+        )
         return
       }
 
@@ -277,6 +296,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <th>Date</th>
                 <th>Performer</th>
                 <th>System</th>
+                <th>Activity Type</th>
                 <th>Tag</th>
                 <th>Problem</th>
                 <th>Action</th>
@@ -288,6 +308,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>3-Apr-2026</td>
                 <td>Ahmed Mohamed</td>
                 <td>DCS</td>
+                <td>PM</td>
                 <td>920TT305</td>
                 <td>Add H Alarm</td>
                 <td>Added H Alarm at 100C</td>
@@ -297,6 +318,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>4-3-26</td>
                 <td></td>
                 <td>LCS</td>
+                <td>CM</td>
                 <td>LCS Alarm</td>
                 <td>CH1 S 7R Fault</td>
                 <td>Checked communication card</td>
@@ -306,6 +328,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>03/04/2026</td>
                 <td></td>
                 <td>DCS</td>
+                <td>CM</td>
                 <td>920TT305</td>
                 <td>Reading error</td>
                 <td>Checked transmitter</td>
@@ -315,6 +338,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>04-03-2026</td>
                 <td>Sara Ali</td>
                 <td>PLC</td>
+                <td>Mod</td>
                 <td>200FIC310</td>
                 <td>Valve response delay</td>
                 <td>Tuning was made</td>

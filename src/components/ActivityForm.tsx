@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
 import { SYSTEM_OPTIONS } from '../constants/systems'
 import { type Activity, getUsers } from '../supabaseClient'
 
@@ -22,6 +23,7 @@ const getInitialFormData = (): Activity => ({
   date: getTodayDate(),
   performer: '',
   system: '',
+  activityType: '',
   tag: '',
   problem: '',
   action: '',
@@ -44,6 +46,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
     if (initialData) {
       setFormData({
         ...initialData,
+        activityType: initialData.activityType ?? '',
         comments: initialData.comments ?? '',
       })
       return
@@ -114,6 +117,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
     if (initialData) {
       setFormData({
         ...initialData,
+        activityType: initialData.activityType ?? '',
         comments: initialData.comments ?? '',
       })
       return
@@ -214,6 +218,26 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         </div>
 
         <div className="form-group">
+          <label htmlFor="activityType">Activity Type *</label>
+          <select
+            id="activityType"
+            name="activityType"
+            value={formData.activityType}
+            onChange={handleChange}
+            required
+          >
+            <option value="">-- Select Activity Type --</option>
+            {ACTIVITY_TYPE_OPTIONS.map((activityTypeOption) => (
+              <option key={activityTypeOption.value} value={activityTypeOption.value}>
+                {activityTypeOption.label}
+              </option>
+            ))}
+          </select>
+          <small className="form-hint">Choose PM, CM, or Mod for this activity.</small>
+        </div>
+      </div>
+
+      <div className="form-group">
           <label htmlFor="tag">Tag *</label>
           <input
             type="text"
@@ -225,7 +249,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
             required
           />
         </div>
-      </div>
 
       <div className="form-group">
         <label htmlFor="problem">Problem *</label>

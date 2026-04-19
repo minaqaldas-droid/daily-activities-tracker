@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { type ActivityTypeValue, ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
 import { SYSTEM_OPTIONS } from '../constants/systems'
 import { type SearchFilters } from '../supabaseClient'
 
@@ -17,6 +18,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
   const [endDate, setEndDate] = useState('')
   const [performer, setPerformer] = useState('')
   const [system, setSystem] = useState('')
+  const [activityType, setActivityType] = useState<ActivityTypeValue | ''>('')
   const [tag, setTag] = useState('')
 
   const handleDateModeChange = (nextMode: DateFilterMode) => {
@@ -40,6 +42,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
       performer: performer || undefined,
       tag: tag || undefined,
       system: system || undefined,
+      activityType: activityType || undefined,
     }
 
     if (dateMode === 'single') {
@@ -61,13 +64,14 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
     setEndDate('')
     setPerformer('')
     setSystem('')
+    setActivityType('')
     setTag('')
     setDateMode('all')
     await onSearch({})
   }
 
   const hasActiveFilters = Boolean(
-    keyword || singleDate || startDate || endDate || performer || system || tag
+    keyword || singleDate || startDate || endDate || performer || system || activityType || tag
   )
 
   return (
@@ -96,7 +100,7 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
               className="keyword-input"
             />
             <small>
-              Searches date, performer, system, tag, problem, action, and comments.
+              Searches date, performer, system, activity type, tag, problem, action, and comments.
             </small>
           </div>
         </section>
@@ -229,6 +233,23 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
                 placeholder="Search performer name..."
                 disabled={isLoading}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="filterActivityType">Activity Type</label>
+              <select
+                id="filterActivityType"
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value as ActivityTypeValue | '')}
+                disabled={isLoading}
+              >
+                <option value="">All Activity Types</option>
+                {ACTIVITY_TYPE_OPTIONS.map((activityTypeOption) => (
+                  <option key={activityTypeOption.value} value={activityTypeOption.value}>
+                    {activityTypeOption.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">

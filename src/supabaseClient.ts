@@ -6,6 +6,7 @@ import {
   type User as SupabaseAuthUser,
   type UserAttributes,
 } from '@supabase/supabase-js'
+import { type ActivityTypeValue, getActivityTypeLabel } from './constants/activityTypes'
 import { formatDateForDisplay, normalizeDateForApp } from './utils/date'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -32,6 +33,7 @@ export interface Activity {
   date: string
   performer: string
   system: string
+  activityType: ActivityTypeValue | ''
   tag: string
   problem: string
   action: string
@@ -64,6 +66,7 @@ export interface SearchFilters {
   startDate?: string
   endDate?: string
   performer?: string
+  activityType?: ActivityTypeValue | ''
   tag?: string
   system?: string
   keyword?: string
@@ -224,6 +227,7 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
 function getFormattedActivity(activity: Activity) {
   return {
     ...activity,
+    activityType: activity.activityType ?? '',
     comments: activity.comments ?? '',
     editedBy: activity.editedBy ?? null,
   }
@@ -235,6 +239,7 @@ function normalizeActivity(activity: Partial<Activity>): Activity {
     date: normalizeDateForApp(activity.date),
     performer: activity.performer ?? '',
     system: activity.system ?? '',
+    activityType: activity.activityType ?? '',
     tag: activity.tag ?? '',
     problem: activity.problem ?? '',
     action: activity.action ?? '',
@@ -645,6 +650,10 @@ export async function searchActivities(filters: SearchFilters) {
       query = query.eq('system', filters.system)
     }
 
+    if (filters.activityType) {
+      query = query.eq('activityType', filters.activityType)
+    }
+
     const { data, error } = await query
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -660,6 +669,8 @@ export async function searchActivities(filters: SearchFilters) {
           formatDateForDisplay(activity.date),
           activity.performer,
           activity.system,
+          activity.activityType,
+          getActivityTypeLabel(activity.activityType),
           activity.tag,
           activity.problem,
           activity.action,

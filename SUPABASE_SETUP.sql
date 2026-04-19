@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.activities (
   date TEXT NOT NULL DEFAULT '',
   performer TEXT NOT NULL,
   system TEXT NOT NULL DEFAULT '',
+  "activityType" TEXT NOT NULL DEFAULT '' CHECK ("activityType" IN ('', 'PM', 'CM', 'Mod')),
   tag TEXT NOT NULL DEFAULT '',
   problem TEXT NOT NULL,
   action TEXT NOT NULL,
@@ -42,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_activities_created_at ON public.activities(create
 CREATE INDEX IF NOT EXISTS idx_activities_performer ON public.activities(performer);
 CREATE INDEX IF NOT EXISTS idx_activities_tag ON public.activities(tag);
 CREATE INDEX IF NOT EXISTS idx_activities_system ON public.activities(system);
+CREATE INDEX IF NOT EXISTS idx_activities_activity_type ON public.activities("activityType");
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
 
