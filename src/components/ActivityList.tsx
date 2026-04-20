@@ -70,13 +70,14 @@ export const ActivityList: React.FC<ActivityListProps> = ({
         <tbody>
           {activities.map((activity) => {
             const isExpanded = expandedId === activity.id
+            const hasExpandableDetails = Boolean(activity.comments || activity.editedBy)
 
             return (
               <React.Fragment key={activity.id}>
                 <tr
                   className={`activity-row ${isExpanded ? 'expanded' : ''}`}
-                  onClick={() => activity.comments && toggleExpand(activity.id)}
-                  style={{ cursor: activity.comments ? 'pointer' : 'default' }}
+                  onClick={() => hasExpandableDetails && toggleExpand(activity.id)}
+                  style={{ cursor: hasExpandableDetails ? 'pointer' : 'default' }}
                 >
                   <td className="col-date" data-label="Date">
                     <span className="date-badge">{formatDateForDisplay(activity.date)}</span>
@@ -153,7 +154,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                         )}
                         {activity.editedBy && (
                           <div className="expanded-section">
-                            <strong>Edited by</strong>
+                            <strong>Edited By</strong>
                             <p>{activity.editedBy}</p>
                           </div>
                         )}

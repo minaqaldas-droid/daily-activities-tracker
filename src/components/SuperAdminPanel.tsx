@@ -24,7 +24,6 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
   const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [logoInputType, setLogoInputType] = useState<'url' | 'file'>('url')
   const [uploadProgress, setUploadProgress] = useState(0)
 
   useEffect(() => {
@@ -34,20 +33,6 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
     setPerformerMode(currentSettings.performer_mode || 'manual')
     setPreviewUrl(currentSettings.logo_url || null)
   }, [currentSettings])
-
-  const handleLogoUrlChange = (url: string) => {
-    setLogoUrl(url)
-    setUploadProgress(0)
-
-    if (url && !url.match(/^https?:\/\/.+/)) {
-      setError('Please enter a valid URL starting with http:// or https://')
-      setPreviewUrl(null)
-      return
-    }
-
-    setError('')
-    setPreviewUrl(url || null)
-  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -84,6 +69,13 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
       setError('Failed to read file.')
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleRemoveLogo = () => {
+    setLogoUrl('')
+    setPreviewUrl(null)
+    setUploadProgress(0)
+    setError('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,54 +142,20 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
 
           <div className="form-group">
             <label>Logo Upload</label>
-            <div className="logo-input-tabs">
-              <button
-                type="button"
-                className={`tab-option ${logoInputType === 'url' ? 'active' : ''}`}
-                onClick={() => setLogoInputType('url')}
-              >
-                URL
-              </button>
-              <button
-                type="button"
-                className={`tab-option ${logoInputType === 'file' ? 'active' : ''}`}
-                onClick={() => setLogoInputType('file')}
-              >
-                Upload File
-              </button>
-            </div>
-
-            {logoInputType === 'url' ? (
-              <>
-                <input
-                  type="url"
-                  value={logoUrl}
-                  onChange={(e) => handleLogoUrlChange(e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                  disabled={isSubmitting || isLoading}
-                />
-                <span className="form-hint">
-                  Optional. Leave blank to hide the logo, or provide a public image URL.
-                </span>
-              </>
-            ) : (
-              <>
-                <label className="file-input-label">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                    onChange={handleFileSelect}
-                    disabled={isSubmitting || isLoading}
-                  />
-                  <span className="file-input-button">
-                    {uploadProgress > 0 && uploadProgress < 100
-                      ? `Uploading... ${uploadProgress}%`
-                      : 'Choose Logo File'}
-                  </span>
-                </label>
-                <span className="form-hint">PNG, JPG, SVG, or WebP. Max 5MB.</span>
-              </>
-            )}
+            <label className="file-input-label">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                onChange={handleFileSelect}
+                disabled={isSubmitting || isLoading}
+              />
+              <span className="file-input-button">
+                {uploadProgress > 0 && uploadProgress < 100
+                  ? `Uploading... ${uploadProgress}%`
+                  : 'Choose Logo File'}
+              </span>
+            </label>
+            <span className="form-hint">Upload only. PNG, JPG, SVG, or WebP. Max 5MB.</span>
           </div>
 
           {previewUrl && (
@@ -212,6 +170,16 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({
                     setPreviewUrl(null)
                   }}
                 />
+              </div>
+              <div className="avatar-editor-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleRemoveLogo}
+                  disabled={isSubmitting || isLoading}
+                >
+                  Remove Logo
+                </button>
               </div>
             </div>
           )}

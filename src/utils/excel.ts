@@ -1,5 +1,7 @@
 import { type Activity } from '../supabaseClient'
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 function normalizeFilename(filename: string) {
   const sanitized = filename.trim().replace(/[\\/:*?"<>|]+/g, '_')
   const fallback = `Activities_${new Date().toISOString().split('T')[0]}`
@@ -10,7 +12,7 @@ function normalizeFilename(filename: string) {
 
 function buildExportRows(activities: Activity[]) {
   return activities.map((activity) => ({
-    Date: activity.date,
+    Date: formatExcelDate(activity.date),
     Performer: activity.performer,
     'Activity Type': activity.activityType || '',
     System: activity.system,
@@ -18,9 +20,25 @@ function buildExportRows(activities: Activity[]) {
     Problem: activity.problem,
     Action: activity.action,
     Comments: activity.comments || '',
-    'Edited By': activity.editedBy || '',
-    'Created At': activity.created_at || '',
   }))
+}
+
+function formatExcelDate(value: string) {
+  const trimmedValue = value.trim()
+  const match = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (!match) {
+    return trimmedValue
+  }
+
+  const [, year, month, day] = match
+  const monthIndex = Number(month) - 1
+
+  if (monthIndex < 0 || monthIndex >= MONTH_NAMES.length) {
+    return trimmedValue
+  }
+
+  return `${Number(day)}-${MONTH_NAMES[monthIndex]}-${year}`
 }
 
 export async function exportActivitiesToExcel(
@@ -47,8 +65,6 @@ export async function exportActivitiesToExcel(
     { wch: 30 },
     { wch: 30 },
     { wch: 25 },
-    { wch: 18 },
-    { wch: 22 },
   ]
 
   XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName || 'Activities')

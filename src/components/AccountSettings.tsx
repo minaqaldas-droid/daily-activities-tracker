@@ -8,10 +8,6 @@ interface AccountSettingsProps {
   isLoading?: boolean
 }
 
-function isValidImageSource(value: string) {
-  return /^https?:\/\/.+/i.test(value) || /^data:image\/[a-z0-9.+-]+;base64,/i.test(value)
-}
-
 export const AccountSettings: React.FC<AccountSettingsProps> = ({
   user,
   onUpdateSuccess,
@@ -22,7 +18,6 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
   const [email, setEmail] = useState(user.email)
   const [avatarUrl, setAvatarUrl] = useState(user.avatar_url || '')
   const [previewUrl, setPreviewUrl] = useState<string | null>(user.avatar_url || null)
-  const [avatarInputType, setAvatarInputType] = useState<'url' | 'file'>('url')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -35,35 +30,12 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
     setEmail(user.email)
     setAvatarUrl(user.avatar_url || '')
     setPreviewUrl(user.avatar_url || null)
-    setAvatarInputType('url')
     setUploadProgress(0)
     setNewPassword('')
     setConfirmPassword('')
     setError('')
     setSuccess('')
   }, [user])
-
-  const handleAvatarUrlChange = (value: string) => {
-    const trimmedValue = value.trim()
-
-    setAvatarUrl(value)
-    setUploadProgress(0)
-
-    if (!trimmedValue) {
-      setPreviewUrl(null)
-      setError('')
-      return
-    }
-
-    if (!isValidImageSource(trimmedValue)) {
-      setPreviewUrl(null)
-      setError('Please enter a valid image URL starting with http:// or https://.')
-      return
-    }
-
-    setPreviewUrl(trimmedValue)
-    setError('')
-  }
 
   const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -118,11 +90,6 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
 
     if (!name.trim() || !email.trim()) {
       setError('Name and email are required.')
-      return
-    }
-
-    if (avatarUrl.trim() && !isValidImageSource(avatarUrl.trim())) {
-      setError('Please provide a valid profile picture URL or upload an image file.')
       return
     }
 
@@ -195,52 +162,20 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
               </div>
 
               <div className="avatar-editor-fields">
-                <div className="logo-input-tabs">
-                  <button
-                    type="button"
-                    className={`tab-option ${avatarInputType === 'url' ? 'active' : ''}`}
-                    onClick={() => setAvatarInputType('url')}
-                  >
-                    URL
-                  </button>
-                  <button
-                    type="button"
-                    className={`tab-option ${avatarInputType === 'file' ? 'active' : ''}`}
-                    onClick={() => setAvatarInputType('file')}
-                  >
-                    Upload File
-                  </button>
-                </div>
-
-                {avatarInputType === 'url' ? (
-                  <>
-                    <input
-                      type="url"
-                      value={avatarUrl}
-                      onChange={(e) => handleAvatarUrlChange(e.target.value)}
-                      placeholder="https://example.com/profile-picture.png"
-                      disabled={isSubmitting || isLoading}
-                    />
-                    <span className="form-hint">Use a public image URL, or leave blank to remove your picture.</span>
-                  </>
-                ) : (
-                  <>
-                    <label className="file-input-label">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                        onChange={handleAvatarFileSelect}
-                        disabled={isSubmitting || isLoading}
-                      />
-                      <span className="file-input-button">
-                        {uploadProgress > 0 && uploadProgress < 100
-                          ? `Uploading... ${uploadProgress}%`
-                          : 'Choose Profile Picture'}
-                      </span>
-                    </label>
-                    <span className="form-hint">PNG, JPG, SVG, or WebP. Max 5MB.</span>
-                  </>
-                )}
+                <label className="file-input-label">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                    onChange={handleAvatarFileSelect}
+                    disabled={isSubmitting || isLoading}
+                  />
+                  <span className="file-input-button">
+                    {uploadProgress > 0 && uploadProgress < 100
+                      ? `Uploading... ${uploadProgress}%`
+                      : 'Choose Profile Picture'}
+                  </span>
+                </label>
+                <span className="form-hint">Upload only. PNG, JPG, SVG, or WebP. Max 5MB.</span>
 
                 <div className="avatar-editor-actions">
                   <button

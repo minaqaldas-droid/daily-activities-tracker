@@ -49,6 +49,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         activityType: initialData.activityType ?? '',
         comments: initialData.comments ?? '',
       })
+      setPerformerIsOther(initialData.performer === 'Other')
       return
     }
 
@@ -57,6 +58,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
       nextFormData.performer = currentUserName
     }
 
+    setPerformerIsOther(nextFormData.performer === 'Other')
     setFormData(nextFormData)
   }, [currentUserName, initialData, performerMode])
 
@@ -66,21 +68,8 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
       return
     }
 
-    const isKnownUser = usersList.some((user) => user.name === formData.performer)
-    const shouldNormalizeToOther =
-      Boolean(formData.performer) && formData.performer !== 'Other' && !isKnownUser
-
-    if (shouldNormalizeToOther) {
-      setFormData((prev) => ({
-        ...prev,
-        performer: 'Other',
-      }))
-      setPerformerIsOther(true)
-      return
-    }
-
     setPerformerIsOther(formData.performer === 'Other')
-  }, [formData.performer, performerMode, usersList])
+  }, [formData.performer, performerMode])
 
   useEffect(() => {
     if (performerMode !== 'manual') {
@@ -120,6 +109,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         activityType: initialData.activityType ?? '',
         comments: initialData.comments ?? '',
       })
+      setPerformerIsOther(initialData.performer === 'Other')
       return
     }
 
@@ -131,6 +121,13 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
     setPerformerIsOther(false)
     setFormData(nextFormData)
   }
+
+  const showLegacyPerformerOption =
+    performerMode === 'manual' &&
+    !isLoadingUsers &&
+    Boolean(formData.performer) &&
+    formData.performer !== 'Other' &&
+    !usersList.some((user) => user.name === formData.performer)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -177,6 +174,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
                 disabled={isLoadingUsers}
               >
                 <option value="">-- Select Performer --</option>
+                {showLegacyPerformerOption && <option value={formData.performer}>{formData.performer}</option>}
                 {usersList.map((user) => (
                   <option key={user.id} value={user.name}>
                     {user.name}

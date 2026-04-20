@@ -1127,7 +1127,8 @@ body.app-shell-active {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.82;
+  color: #ffffff;
+  opacity: 1;
   margin-bottom: 8px;
 }
 
@@ -1136,12 +1137,13 @@ body.app-shell-active {
   font-size: 1.9rem;
   font-weight: 800;
   letter-spacing: -0.03em;
+  color: #ffffff;
 }
 
 .results-popup-description {
   margin-top: 10px;
   max-width: 760px;
-  color: rgba(255, 255, 255, 0.88);
+  color: #ffffff;
   line-height: 1.5;
 }
 
@@ -5019,6 +5021,20 @@ body {
     gap: 10px;
   }
 
+  .app-toolbar-logo {
+    width: 48px;
+    height: 48px;
+    padding: 7px;
+  }
+
+  .app-toolbar-label {
+    font-size: 0.72rem;
+  }
+
+  .app-toolbar-copy strong {
+    font-size: 0.92rem;
+  }
+
   .app-toolbar-button {
     min-height: 36px;
     padding: 0 11px;
@@ -5182,6 +5198,18 @@ body {
   .sidebar.expanded .logout-btn {
     padding: 9px 10px;
   }
+}
+
+.activities-table th.col-actions,
+.activities-table td.col-actions {
+  text-align: center;
+}
+
+.results-popup-header .results-popup-kicker,
+.results-popup-header h2,
+.results-popup-header .results-popup-description {
+  color: #ffffff;
+  opacity: 1;
 }
 
 

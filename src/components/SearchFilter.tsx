@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { type ActivityTypeValue, ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
 import { SYSTEM_OPTIONS } from '../constants/systems'
-import { type SearchFilters } from '../supabaseClient'
+import { getUsers, type SearchFilters } from '../supabaseClient'
 
 interface SearchFilterProps {
   onSearch: (filters: SearchFilters) => void | Promise<void>
@@ -17,9 +17,37 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [performer, setPerformer] = useState('')
+  const [performers, setPerformers] = useState<Array<{ id: string; name: string; email: string }>>([])
+  const [isLoadingPerformers, setIsLoadingPerformers] = useState(false)
   const [system, setSystem] = useState('')
   const [activityType, setActivityType] = useState<ActivityTypeValue | ''>('')
   const [tag, setTag] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadPerformers = async () => {
+      try {
+        setIsLoadingPerformers(true)
+        const users = await getUsers()
+        if (isMounted) {
+          setPerformers(users || [])
+        }
+      } catch (error) {
+        console.error('Failed to load performers for search:', error)
+      } finally {
+        if (isMounted) {
+          setIsLoadingPerformers(false)
+        }
+      }
+    }
+
+    void loadPerformers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleDateModeChange = (nextMode: DateFilterMode) => {
     setDateMode(nextMode)
@@ -225,14 +253,20 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
 
             <div className="form-group">
               <label htmlFor="filterPerformer">Performer</label>
-              <input
-                type="text"
+              <select
                 id="filterPerformer"
                 value={performer}
                 onChange={(e) => setPerformer(e.target.value)}
-                placeholder="Search performer name..."
-                disabled={isLoading}
-              />
+                disabled={isLoading || isLoadingPerformers}
+              >
+                <option value="">All Performers</option>
+                {performers.map((user) => (
+                  <option key={user.id} value={user.name}>
+                    {user.name}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div className="form-group">
