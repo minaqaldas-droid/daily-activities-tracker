@@ -1222,6 +1222,12 @@ body.app-shell-active {
   animation: slideIn 0.3s ease-out;
 }
 
+.admin-settings-modal {
+  width: min(1080px, 94vw);
+  max-width: 1080px;
+  max-height: 92vh;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -5307,6 +5313,58 @@ body {
 .moc-inline-title {
   color: #334155;
   font-weight: 600;
+}
+
+.user-management-modal {
+  width: min(1360px, 95vw);
+  max-width: 1360px;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.user-management-modal .form-group,
+.user-management-modal .table-container,
+.user-management-modal .modal-actions {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.rbac-row {
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #ffffff;
+}
+
+.rbac-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.rbac-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rbac-permission-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+@media (max-width: 980px) {
+  .rbac-checkbox-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .results-popup-search {

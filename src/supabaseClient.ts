@@ -49,6 +49,7 @@ export interface User {
   role: 'user' | 'admin'
   avatar_url?: string
   preferred_primary_color?: string
+  permissions?: FeaturePermissions
   created_at?: string
 }
 
@@ -108,14 +109,28 @@ type UserProfileRow = {
   role: 'user' | 'admin' | 'superadmin' | null
   avatar_url?: string | null
   preferred_primary_color?: string | null
+  permissions?: Partial<FeaturePermissions> | null
   created_at?: string
 }
+
+export type FeatureKey =
+  | 'dashboard'
+  | 'add'
+  | 'edit'
+  | 'search'
+  | 'import'
+  | 'export'
+  | 'edit_action'
+  | 'delete_action'
+
+export type FeaturePermissions = Record<FeatureKey, boolean>
 
 export interface AdminManagedUser {
   id: string
   email: string
   name: string
   role: 'user' | 'admin'
+  permissions: FeaturePermissions
   created_at?: string
 }
 
@@ -123,6 +138,7 @@ interface UpdateManagedUserInput {
   email?: string
   name?: string
   role?: 'user' | 'admin'
+  permissions?: FeaturePermissions
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -140,6 +156,53 @@ const DEFAULT_SETTINGS: Settings = {
   sidebar_font_size: '0.95rem',
 }
 
+export const DEFAULT_USER_PERMISSIONS: FeaturePermissions = {
+  dashboard: true,
+  add: false,
+  edit: false,
+  search: true,
+  import: false,
+  export: true,
+  edit_action: false,
+  delete_action: false,
+}
+
+export const ADMIN_PERMISSIONS: FeaturePermissions = {
+  dashboard: true,
+  add: true,
+  edit: true,
+  search: true,
+  import: true,
+  export: true,
+  edit_action: true,
+  delete_action: true,
+}
+
+export function normalizePermissions(
+  permissions: Partial<FeaturePermissions> | null | undefined,
+  role: User['role']
+): FeaturePermissions {
+  const base = role === 'admin' ? ADMIN_PERMISSIONS : DEFAULT_USER_PERMISSIONS
+
+  return {
+    ...base,
+    ...(permissions || {}),
+  }
+}
+
+export function hasPermission(user: User | null | undefined, feature: FeatureKey) {
+  if (!user) {
+    return false
+  }
+
+  if (user.role === 'admin') {
+    return true
+  }
+
+  const normalized = normalizePermissions(user.permissions, user.role)
+  return Boolean(normalized[feature])
+}
+
 function getMetadataAvatar(authUser: SupabaseAuthUser) {
   const metadataAvatar =
     typeof authUser.user_metadata?.avatar_url === 'string'
@@ -153,6 +216,7 @@ function normalizeUserProfile(profile: UserProfileRow, avatarUrl?: string): User
   const normalizedRole = profile.role === 'admin' || profile.role === 'superadmin' ? 'admin' : 'user'
   const normalizedAvatar = (avatarUrl || profile.avatar_url || '').trim()
   const normalizedPrimaryColor = (profile.preferred_primary_color || '').trim()
+  const normalizedPermissions = normalizePermissions(profile.permissions, normalizedRole)
 
   return {
     id: profile.id,
@@ -161,16 +225,19 @@ function normalizeUserProfile(profile: UserProfileRow, avatarUrl?: string): User
     role: normalizedRole,
     avatar_url: normalizedAvatar || undefined,
     preferred_primary_color: normalizedPrimaryColor || undefined,
+    permissions: normalizedPermissions,
     created_at: profile.created_at,
   }
 }
 
 function normalizeManagedUser(profile: UserProfileRow): AdminManagedUser {
+  const normalizedRole = profile.role === 'admin' || profile.role === 'superadmin' ? 'admin' : 'user'
   return {
     id: profile.id,
     email: profile.email,
     name: profile.name,
-    role: profile.role === 'admin' || profile.role === 'superadmin' ? 'admin' : 'user',
+    role: normalizedRole,
+    permissions: normalizePermissions(profile.permissions, normalizedRole),
     created_at: profile.created_at,
   }
 }
@@ -207,7 +274,7 @@ function getProfileSyncErrorMessage(error: unknown) {
 async function getUserProfileById(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
+    .select('id, email, name, role, avatar_url, preferred_primary_color, permissions, created_at')
     .eq('id', userId)
     .maybeSingle<UserProfileRow>()
 
@@ -230,11 +297,12 @@ async function upsertUserProfile(profile: User) {
           role: profile.role,
           avatar_url: profile.avatar_url || '',
           preferred_primary_color: profile.preferred_primary_color || '',
+          permissions: normalizePermissions(profile.permissions, profile.role),
         },
       ],
       { onConflict: 'id' }
     )
-    .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
+    .select('id, email, name, role, avatar_url, preferred_primary_color, permissions, created_at')
     .single<UserProfileRow>()
 
   if (error) {
@@ -254,6 +322,7 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
     role: existingProfile?.role ?? 'user',
     avatar_url: metadataAvatar || existingProfile?.avatar_url,
     preferred_primary_color: existingProfile?.preferred_primary_color || '',
+    permissions: normalizePermissions(existingProfile?.permissions, existingProfile?.role || 'user'),
     created_at: existingProfile?.created_at,
   }
 
@@ -263,7 +332,9 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
     existingProfile.name === desiredProfile.name &&
     existingProfile.role === desiredProfile.role &&
     (existingProfile.avatar_url || '') === (desiredProfile.avatar_url || '') &&
-    (existingProfile.preferred_primary_color || '') === (desiredProfile.preferred_primary_color || '')
+    (existingProfile.preferred_primary_color || '') === (desiredProfile.preferred_primary_color || '') &&
+    JSON.stringify(normalizePermissions(existingProfile.permissions, existingProfile.role)) ===
+      JSON.stringify(normalizePermissions(desiredProfile.permissions, desiredProfile.role))
   ) {
     return {
       ...existingProfile,
@@ -578,7 +649,7 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
         preferred_primary_color: trimmedPreferredPrimaryColor,
       })
       .eq('id', userId)
-      .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
+      .select('id, email, name, role, avatar_url, preferred_primary_color, permissions, created_at')
       .single<UserProfileRow>()
 
     if (profileError) throw profileError
@@ -708,7 +779,7 @@ export async function getUsersCount() {
 export async function getManagedUsers() {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, created_at')
+    .select('id, email, name, role, permissions, created_at')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -723,7 +794,10 @@ export async function createManagedUser(input: {
   email: string
   name: string
   role: 'user' | 'admin'
+  permissions?: FeaturePermissions
 }) {
+  const permissions = normalizePermissions(input.permissions, input.role)
+
   const { data, error } = await supabase
     .from('users')
     .upsert(
@@ -733,11 +807,12 @@ export async function createManagedUser(input: {
           email: input.email.trim(),
           name: input.name.trim(),
           role: input.role,
+          permissions,
         },
       ],
       { onConflict: 'id' }
     )
-    .select('id, email, name, role, created_at')
+    .select('id, email, name, role, permissions, created_at')
     .single<UserProfileRow>()
 
   if (error) {
@@ -762,11 +837,15 @@ export async function updateManagedUser(userId: string, input: UpdateManagedUser
     payload.role = input.role
   }
 
+  if (input.permissions) {
+    payload.permissions = normalizePermissions(input.permissions, input.role || 'user')
+  }
+
   const { data, error } = await supabase
     .from('users')
     .update(payload)
     .eq('id', userId)
-    .select('id, email, name, role, created_at')
+    .select('id, email, name, role, permissions, created_at')
     .single<UserProfileRow>()
 
   if (error) {
@@ -782,6 +861,25 @@ export async function deleteManagedUser(userId: string) {
   if (error) {
     throw error
   }
+}
+
+export async function uploadBrandingAsset(adminUserId: string, kind: 'logo' | 'favicon', file: File) {
+  const extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() || 'png' : 'png'
+  const sanitizedName = sanitizeFileName(file.name || `${kind}.${extension}`)
+  const filePath = `${kind}/${adminUserId}/${Date.now()}-${sanitizedName}`
+
+  const { error } = await supabase.storage.from('branding-assets').upload(filePath, file, {
+    cacheControl: '3600',
+    upsert: true,
+    contentType: file.type || undefined,
+  })
+
+  if (error) {
+    throw error
+  }
+
+  const { data } = supabase.storage.from('branding-assets').getPublicUrl(filePath)
+  return data.publicUrl
 }
 
 export async function searchActivities(filters: SearchFilters) {

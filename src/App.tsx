@@ -8,10 +8,11 @@ import { Login } from './components/Login'
 import { SearchFilter } from './components/SearchFilter'
 import { Sidebar } from './components/Sidebar'
 import { AdminPanel } from './components/SuperAdminPanel'
+import { UserManagementModal } from './components/UserManagementModal'
 import { useActivities } from './hooks/useActivities'
 import { useAuth } from './hooks/useAuth'
 import { useSettings } from './hooks/useSettings'
-import { type Activity, type SearchFilters, type Settings, type User } from './supabaseClient'
+import { hasPermission, type Activity, type SearchFilters, type Settings, type User } from './supabaseClient'
 
 const ExcelImport = lazy(() =>
   import('./components/ExcelImport').then((module) => ({ default: module.ExcelImport }))
@@ -77,6 +78,7 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('dashboard')
   const [showAccountSettings, setShowAccountSettings] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [showUserManagement, setShowUserManagement] = useState(false)
   const [resultsPopup, setResultsPopup] = useState<ResultsPopupState | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -96,6 +98,7 @@ function App() {
       setCurrentView('dashboard')
       setShowAccountSettings(false)
       setShowAdminPanel(false)
+      setShowUserManagement(false)
       setResultsPopup(null)
       setIsMobileSidebarOpen(false)
       return
@@ -193,6 +196,14 @@ function App() {
   }, [currentUser, isMobileSidebarOpen, isMobileViewport])
 
   const isAdmin = currentUser?.role === 'admin'
+  const canViewDashboard = hasPermission(currentUser, 'dashboard')
+  const canAddActivity = hasPermission(currentUser, 'add')
+  const canOpenEditView = hasPermission(currentUser, 'edit')
+  const canSearch = hasPermission(currentUser, 'search')
+  const canImport = hasPermission(currentUser, 'import')
+  const canExport = hasPermission(currentUser, 'export')
+  const canEditAction = hasPermission(currentUser, 'edit_action')
+  const canDeleteAction = hasPermission(currentUser, 'delete_action')
 
   const buildSearchResultsPopup = (sourceActivities: Activity[]): ResultsPopupState => ({
     title: '🔎 Search Results',
@@ -244,7 +255,7 @@ function App() {
   }
 
   const handleEditActivity = (activity: Activity) => {
-    if (!isAdmin) {
+    if (!canEditAction) {
       setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })
       return
     }
@@ -257,7 +268,7 @@ function App() {
   }
 
   const handleDeleteActivity = async (id: string) => {
-    if (!isAdmin) {
+    if (!canDeleteAction) {
       setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })
       return
     }
@@ -351,18 +362,33 @@ function App() {
     setResultsPopup(null)
     setIsMobileSidebarOpen(false)
 
-    if (view === 'import' && !isAdmin) {
+    if (view === 'dashboard' && !canViewDashboard) {
+      setMessage({ type: 'error', text: 'You do not have permission to access Dashboard.' })
+      return
+    }
+
+    if (view === 'import' && !canImport) {
       setMessage({ type: 'error', text: IMPORT_RESTRICTED_MESSAGE })
       return
     }
 
-    if (view === 'add' && !isAdmin) {
+    if (view === 'add' && !canAddActivity) {
       setMessage({ type: 'error', text: ADD_RESTRICTED_MESSAGE })
       return
     }
 
-    if (view === 'edit' && !isAdmin) {
+    if (view === 'edit' && !canOpenEditView) {
       setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })
+      return
+    }
+
+    if (view === 'search' && !canSearch) {
+      setMessage({ type: 'error', text: 'You do not have permission to access Search.' })
+      return
+    }
+
+    if (view === 'export' && !canExport) {
+      setMessage({ type: 'error', text: 'You do not have permission to access Export.' })
       return
     }
 
@@ -496,8 +522,8 @@ function App() {
                   onEdit={handleEditActivity}
                   onDelete={handleDeleteActivity}
                   isLoading={isLoading}
-                  canEdit={isAdmin}
-                  canDelete={isAdmin}
+                  canEdit={canEditAction}
+                  canDelete={canDeleteAction}
                   onEditDenied={() => setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })}
                   onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
                   onOpenActivityResults={handleOpenDashboardResults}
@@ -540,8 +566,8 @@ function App() {
                     onEdit={handleEditActivity}
                     onDelete={handleDeleteActivity}
                     isLoading={isLoading}
-                    canEdit={isAdmin}
-                    canDelete={isAdmin}
+                    canEdit={canEditAction}
+                    canDelete={canDeleteAction}
                     onEditDenied={() => setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })}
                     onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
                   />
@@ -598,8 +624,8 @@ function App() {
                       onEdit={handleEditActivity}
                       onDelete={handleDeleteActivity}
                       isLoading={isLoading}
-                    canEdit={isAdmin}
-                    canDelete={isAdmin}
+                    canEdit={canEditAction}
+                    canDelete={canDeleteAction}
                     onEditDenied={() => setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })}
                     onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
                     emptyMessage="No activities available yet."
@@ -609,7 +635,7 @@ function App() {
               </>
             )}
 
-            {currentView === 'import' && !isAdmin && (
+            {currentView === 'import' && !canImport && (
               <div className="form-section permission-notice">
                 <h2>Excel Import Restricted</h2>
                 <p>Only Admin users can import activities from Excel files.</p>
@@ -619,7 +645,7 @@ function App() {
               </div>
             )}
 
-            {currentView === 'import' && isAdmin && (
+            {currentView === 'import' && canImport && (
               <Suspense
                 fallback={
                   <div className="form-section">
@@ -681,8 +707,13 @@ function App() {
             currentSettings={settings}
             onClose={() => setShowAdminPanel(false)}
             onSettingsUpdate={handleSettingsUpdate}
+            onOpenUserManagement={() => setShowUserManagement(true)}
             isLoading={isLoading}
           />
+        )}
+
+        {showUserManagement && currentUser.role === 'admin' && (
+          <UserManagementModal onClose={() => setShowUserManagement(false)} />
         )}
 
         <ActivityResultsPopup
@@ -695,8 +726,8 @@ function App() {
           onEdit={handleEditActivity}
           onDelete={handleDeleteActivity}
           isLoading={isLoading}
-          canEdit={isAdmin}
-          canDelete={isAdmin}
+          canEdit={canEditAction}
+          canDelete={canDeleteAction}
           onEditDenied={() => setMessage({ type: 'error', text: EDIT_RESTRICTED_MESSAGE })}
           onDeleteDenied={() => setMessage({ type: 'error', text: DELETE_RESTRICTED_MESSAGE })}
           onExportSuccess={(text) => setMessage({ type: 'success', text })}

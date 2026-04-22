@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { type User } from '../supabaseClient'
+import { hasPermission, type User } from '../supabaseClient'
 
 interface SidebarProps {
   currentUser: User
@@ -26,8 +26,8 @@ const featureItems: Array<{ icon: string; label: string; view: NavView; requires
 ]
 
 const importExportItems: Array<{ icon: string; label: string; view: NavView; requiresAdmin?: boolean }> = [
-  { icon: '📥', label: 'Import Excel', view: 'import', requiresAdmin: true },
-  { icon: '📤', label: 'Export Excel', view: 'export' },
+  { icon: '📥', label: 'Import Activities', view: 'import', requiresAdmin: true },
+  { icon: '📤', label: 'Export Activities', view: 'export' },
 ]
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -45,6 +45,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
 }) => {
   const isAdmin = currentUser.role === 'admin'
+  const canAdd = hasPermission(currentUser, 'add')
+  const canEditView = hasPermission(currentUser, 'edit')
+  const canImport = hasPermission(currentUser, 'import')
+  const canExport = hasPermission(currentUser, 'export')
+  const canDashboard = hasPermission(currentUser, 'dashboard')
+  const canSearch = hasPermission(currentUser, 'search')
   const [isAvatarBroken, setIsAvatarBroken] = useState(false)
   const hoverExpandTimerRef = useRef<number | null>(null)
 
@@ -159,8 +165,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="nav-section">
           <h3 className="nav-section-title">Features</h3>
           {featureItems.map((item) => {
-            const isRestricted = Boolean(item.requiresAdmin && !isAdmin)
-            const restrictedLabel = `${item.label} (Admin only)`
+            const isRestricted = (() => {
+              if (item.view === 'add') return !canAdd
+              if (item.view === 'edit') return !canEditView
+              if (item.view === 'dashboard') return !canDashboard
+              if (item.view === 'search') return !canSearch
+              return Boolean(item.requiresAdmin && !isAdmin)
+            })()
+            const restrictedLabel = `${item.label} (No access)`
             const itemLabel = isRestricted ? restrictedLabel : item.label
 
             return (
@@ -186,8 +198,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="nav-section">
           <h3 className="nav-section-title">Import/Export</h3>
           {importExportItems.map((item) => {
-            const isRestricted = Boolean(item.requiresAdmin && !isAdmin)
-            const restrictedLabel = `${item.label} (Admin only)`
+            const isRestricted = item.view === 'import' ? !canImport : !canExport
+            const restrictedLabel = `${item.label} (No access)`
             const itemLabel = isRestricted ? restrictedLabel : item.label
 
             return (

@@ -19,6 +19,13 @@ ALTER TABLE public.users
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS preferred_primary_color TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{"dashboard": true, "add": false, "edit": false, "search": true, "import": false, "export": true, "edit_action": false, "delete_action": false}'::jsonb;
+
+UPDATE public.users
+SET permissions = '{"dashboard": true, "add": true, "edit": true, "search": true, "import": true, "export": true, "edit_action": true, "delete_action": true}'::jsonb
+WHERE role = 'admin';
+
 -- 2) Admin helper function (keeps backward compatibility with old role values)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
@@ -151,4 +158,50 @@ CREATE POLICY "Users can delete own user photo files"
   USING (
     bucket_id = 'user-photos'
     AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- 7) Branding assets bucket (logo + favicon uploads from admin panel)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('branding-assets', 'branding-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Authenticated users can read branding assets" ON storage.objects;
+CREATE POLICY "Authenticated users can read branding assets"
+  ON storage.objects
+  FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'branding-assets');
+
+DROP POLICY IF EXISTS "Admins can upload branding assets" ON storage.objects;
+CREATE POLICY "Admins can upload branding assets"
+  ON storage.objects
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'branding-assets'
+    AND public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "Admins can update branding assets" ON storage.objects;
+CREATE POLICY "Admins can update branding assets"
+  ON storage.objects
+  FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'branding-assets'
+    AND public.is_admin()
+  )
+  WITH CHECK (
+    bucket_id = 'branding-assets'
+    AND public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "Admins can delete branding assets" ON storage.objects;
+CREATE POLICY "Admins can delete branding assets"
+  ON storage.objects
+  FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'branding-assets'
+    AND public.is_admin()
   );
