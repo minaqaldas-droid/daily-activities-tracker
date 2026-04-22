@@ -7,7 +7,6 @@ interface AccountSettingsProps {
   onClose: () => void
   isLoading?: boolean
   currentPrimaryColor: string
-  onPrimaryColorChange: (color: string) => void
 }
 
 export const AccountSettings: React.FC<AccountSettingsProps> = ({
@@ -16,7 +15,6 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
   onClose,
   isLoading = false,
   currentPrimaryColor,
-  onPrimaryColorChange,
 }) => {
   const [name, setName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
@@ -120,9 +118,8 @@ export const AccountSettings: React.FC<AccountSettingsProps> = ({
         email,
         password: newPassword || undefined,
         avatarUrl: nextAvatarUrl,
+        preferredPrimaryColor: primaryColor,
       })
-
-      onPrimaryColorChange(primaryColor)
 
       onUpdateSuccess(result.user)
 

@@ -52,7 +52,10 @@ function hasSearchFilters(filters: SearchFilters) {
 
 function App() {
   const { currentUser, isAuthLoading, login, signUp, logout, setCurrentUser } = useAuth()
-  const { settings, setSettings, effectivePrimaryColor, setPreferredPrimaryColor } = useSettings(Boolean(currentUser))
+  const { settings, setSettings, effectivePrimaryColor } = useSettings(
+    Boolean(currentUser),
+    currentUser?.preferred_primary_color || ''
+  )
   const {
     activities,
     filteredActivities,
@@ -669,7 +672,6 @@ function App() {
             onClose={() => setShowAccountSettings(false)}
             isLoading={isLoading}
             currentPrimaryColor={effectivePrimaryColor}
-            onPrimaryColorChange={setPreferredPrimaryColor}
           />
         )}
 

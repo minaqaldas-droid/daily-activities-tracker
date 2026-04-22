@@ -130,6 +130,10 @@ body.app-shell-active {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.form-row-three-up {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .form-actions {
   display: flex;
   gap: 10px;
@@ -5227,7 +5231,7 @@ body {
 .form-group-inline-checkbox {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .form-group-inline-checkbox > label:first-child {
@@ -5280,6 +5284,29 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+.moc-inline-cell .checkbox-inline {
+  margin-top: 4px;
+}
+
+.moc-inline-cell .checkbox-inline input[type="checkbox"] {
+  margin-top: 0;
+}
+
+.moc-inline-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.moc-inline-title {
+  color: #334155;
+  font-weight: 600;
 }
 
 .results-popup-search {
@@ -5315,6 +5342,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  .form-row-three-up {
+    grid-template-columns: 1fr;
+  }
+
   .header-content {
     display: none !important;
   }
@@ -5345,6 +5376,12 @@ body {
   .results-popup-pagination {
     justify-content: center;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1024px) {
+  .form-row-three-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

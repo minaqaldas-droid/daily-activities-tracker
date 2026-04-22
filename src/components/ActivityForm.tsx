@@ -162,7 +162,7 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="activity-form-compact">
-      <div className="form-row form-row-two-up">
+      <div className="form-row form-row-three-up">
         <div className="form-group">
           <label htmlFor="date">Date *</label>
           <input type="date" id="date" name="date" value={formData.date} onChange={handleChange} required />
@@ -205,23 +205,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
                 <option value="Other">Other</option>
               </select>
               <small className="form-hint">Select a team member or choose "Other".</small>
-              {performerIsOther && (
-                <div style={{ marginTop: '10px' }}>
-                  <label htmlFor="otherPerformerName">Other Performer Name *</label>
-                  <input
-                    type="text"
-                    id="otherPerformerName"
-                    name="otherPerformerName"
-                    value={otherPerformerName}
-                    onChange={(e) => setOtherPerformerName(e.target.value)}
-                    placeholder="Enter performer name"
-                    required
-                  />
-                  <small className="form-hint">
-                    The entered name will be added to comments as <code>[Name]</code>.
-                  </small>
-                </div>
-              )}
             </>
           ) : (
             <>
@@ -239,9 +222,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
             </>
           )}
         </div>
-      </div>
-
-      <div className="form-row form-row-two-up">
         <div className="form-group">
           <label htmlFor="system">System *</label>
           <select id="system" name="system" value={formData.system} onChange={handleChange} required>
@@ -253,7 +233,29 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
             ))}
           </select>
         </div>
+      </div>
 
+      {performerMode === 'manual' && performerIsOther && (
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="otherPerformerName">Other Performer Name *</label>
+            <input
+              type="text"
+              id="otherPerformerName"
+              name="otherPerformerName"
+              value={otherPerformerName}
+              onChange={(e) => setOtherPerformerName(e.target.value)}
+              placeholder="Enter performer name"
+              required
+            />
+            <small className="form-hint">
+              Added to comments as <code>[Name]</code>.
+            </small>
+          </div>
+        </div>
+      )}
+
+      <div className="form-row form-row-three-up">
         <div className="form-group">
           <label htmlFor="activityType">Activity Type *</label>
           <select
@@ -272,9 +274,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           </select>
           <small className="form-hint">Choose PM, CM, or Mod for this activity.</small>
         </div>
-      </div>
-
-      <div className="form-row form-row-two-up">
         <div className="form-group">
           <label htmlFor="tag">Tag *</label>
           <input
@@ -288,16 +287,16 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
           />
         </div>
 
-        <div className="form-group form-group-inline-checkbox">
-          <label>&nbsp;</label>
-          <label className="checkbox-inline">
+        <div className="form-group form-group-inline-checkbox moc-inline-cell">
+          <div className="moc-inline-control">
+            <span className="moc-inline-title">MOC Activity</span>
             <input
               type="checkbox"
               checked={isMocActivity}
               onChange={(event) => setIsMocActivity(event.target.checked)}
+              aria-label="MOC Activity"
             />
-            <span>MOC Activity</span>
-          </label>
+          </div>
           <small className="form-hint">
             When checked, comments are prefixed with <code>{'{MOC}'}</code>.
           </small>
@@ -330,20 +329,22 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="comments">Comments</label>
-        <textarea
-          id="comments"
-          name="comments"
-          value={formData.comments}
-          onChange={handleChange}
-          placeholder="Any additional comments (optional)"
-        />
-        <small className="form-hint">
-          {performerIsOther && performerMode === 'manual'
-            ? 'Please add any extra context about the custom performer entry here.'
-            : 'Additional notes about this activity.'}
-        </small>
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="comments">Comments</label>
+          <textarea
+            id="comments"
+            name="comments"
+            value={formData.comments}
+            onChange={handleChange}
+            placeholder="Any additional comments (optional)"
+          />
+          <small className="form-hint">
+            {performerIsOther && performerMode === 'manual'
+              ? 'Please add any extra context about the custom performer entry here.'
+              : 'Additional notes about this activity.'}
+          </small>
+        </div>
       </div>
 
       <div className="form-actions">

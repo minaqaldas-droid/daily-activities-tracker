@@ -48,6 +48,7 @@ export interface User {
   name: string
   role: 'user' | 'admin'
   avatar_url?: string
+  preferred_primary_color?: string
   created_at?: string
 }
 
@@ -91,6 +92,7 @@ export interface UpdateUserDetailsInput {
   email: string
   password?: string
   avatarUrl?: string
+  preferredPrimaryColor?: string
 }
 
 export interface UpdateUserDetailsResult {
@@ -105,6 +107,7 @@ type UserProfileRow = {
   name: string
   role: 'user' | 'admin' | 'superadmin' | null
   avatar_url?: string | null
+  preferred_primary_color?: string | null
   created_at?: string
 }
 
@@ -149,6 +152,7 @@ function getMetadataAvatar(authUser: SupabaseAuthUser) {
 function normalizeUserProfile(profile: UserProfileRow, avatarUrl?: string): User {
   const normalizedRole = profile.role === 'admin' || profile.role === 'superadmin' ? 'admin' : 'user'
   const normalizedAvatar = (avatarUrl || profile.avatar_url || '').trim()
+  const normalizedPrimaryColor = (profile.preferred_primary_color || '').trim()
 
   return {
     id: profile.id,
@@ -156,6 +160,7 @@ function normalizeUserProfile(profile: UserProfileRow, avatarUrl?: string): User
     name: profile.name,
     role: normalizedRole,
     avatar_url: normalizedAvatar || undefined,
+    preferred_primary_color: normalizedPrimaryColor || undefined,
     created_at: profile.created_at,
   }
 }
@@ -202,7 +207,7 @@ function getProfileSyncErrorMessage(error: unknown) {
 async function getUserProfileById(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, avatar_url, created_at')
+    .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
     .eq('id', userId)
     .maybeSingle<UserProfileRow>()
 
@@ -224,11 +229,12 @@ async function upsertUserProfile(profile: User) {
           name: profile.name,
           role: profile.role,
           avatar_url: profile.avatar_url || '',
+          preferred_primary_color: profile.preferred_primary_color || '',
         },
       ],
       { onConflict: 'id' }
     )
-    .select('id, email, name, role, avatar_url, created_at')
+    .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
     .single<UserProfileRow>()
 
   if (error) {
@@ -247,6 +253,7 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
     name: existingProfile?.name || getMetadataName(authUser),
     role: existingProfile?.role ?? 'user',
     avatar_url: metadataAvatar || existingProfile?.avatar_url,
+    preferred_primary_color: existingProfile?.preferred_primary_color || '',
     created_at: existingProfile?.created_at,
   }
 
@@ -255,7 +262,8 @@ async function syncUserProfile(authUser: SupabaseAuthUser) {
     existingProfile.email === desiredProfile.email &&
     existingProfile.name === desiredProfile.name &&
     existingProfile.role === desiredProfile.role &&
-    (existingProfile.avatar_url || '') === (desiredProfile.avatar_url || '')
+    (existingProfile.avatar_url || '') === (desiredProfile.avatar_url || '') &&
+    (existingProfile.preferred_primary_color || '') === (desiredProfile.preferred_primary_color || '')
   ) {
     return {
       ...existingProfile,
@@ -523,6 +531,7 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
     const trimmedName = details.name.trim()
     const trimmedEmail = details.email.trim()
     const trimmedAvatarUrl = details.avatarUrl?.trim() || ''
+    const trimmedPreferredPrimaryColor = details.preferredPrimaryColor?.trim() || ''
 
     const {
       data: { user: authUser },
@@ -566,9 +575,10 @@ export async function updateUserDetails(userId: string, details: UpdateUserDetai
         name: trimmedName,
         email: emailForProfile,
         avatar_url: trimmedAvatarUrl,
+        preferred_primary_color: trimmedPreferredPrimaryColor,
       })
       .eq('id', userId)
-      .select('id, email, name, role, avatar_url, created_at')
+      .select('id, email, name, role, avatar_url, preferred_primary_color, created_at')
       .single<UserProfileRow>()
 
     if (profileError) throw profileError

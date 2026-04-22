@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
   avatar_url TEXT NOT NULL DEFAULT '',
+  preferred_primary_color TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 

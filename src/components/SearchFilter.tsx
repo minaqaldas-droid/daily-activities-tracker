@@ -133,6 +133,79 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
           </div>
         </section>
 
+        <section className="search-card">
+          <div className="search-card-header">
+            <h4>Field Filters</h4>
+            <p>Refine results using structured activity details.</p>
+          </div>
+
+          <div className="search-grid">
+            <div className="form-group">
+              <label htmlFor="filterSystem">System</label>
+              <select
+                id="filterSystem"
+                value={system}
+                onChange={(e) => setSystem(e.target.value)}
+                disabled={isLoading}
+              >
+                <option value="">All Systems</option>
+                {SYSTEM_OPTIONS.map((systemOption) => (
+                  <option key={systemOption} value={systemOption}>
+                    {systemOption}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="filterPerformer">Performer</label>
+              <select
+                id="filterPerformer"
+                value={performer}
+                onChange={(e) => setPerformer(e.target.value)}
+                disabled={isLoading || isLoadingPerformers}
+              >
+                <option value="">All Performers</option>
+                {performers.map((user) => (
+                  <option key={user.id} value={user.name}>
+                    {user.name}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="filterActivityType">Activity Type</label>
+              <select
+                id="filterActivityType"
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value as ActivityTypeValue | '')}
+                disabled={isLoading}
+              >
+                <option value="">All Activity Types</option>
+                {ACTIVITY_TYPE_OPTIONS.map((activityTypeOption) => (
+                  <option key={activityTypeOption.value} value={activityTypeOption.value}>
+                    {activityTypeOption.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="filterTag">Tag</label>
+              <input
+                type="text"
+                id="filterTag"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                placeholder="Search tag..."
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        </section>
+
         <section className="search-card search-card-wide">
           <div className="search-card-header">
             <h4>Date Filter</h4>
@@ -225,79 +298,6 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
               </div>
             </div>
           )}
-        </section>
-
-        <section className="search-card">
-          <div className="search-card-header">
-            <h4>Field Filters</h4>
-            <p>Refine results using structured activity details.</p>
-          </div>
-
-          <div className="search-grid">
-            <div className="form-group">
-              <label htmlFor="filterSystem">System</label>
-              <select
-                id="filterSystem"
-                value={system}
-                onChange={(e) => setSystem(e.target.value)}
-                disabled={isLoading}
-              >
-                <option value="">All Systems</option>
-                {SYSTEM_OPTIONS.map((systemOption) => (
-                  <option key={systemOption} value={systemOption}>
-                    {systemOption}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="filterPerformer">Performer</label>
-              <select
-                id="filterPerformer"
-                value={performer}
-                onChange={(e) => setPerformer(e.target.value)}
-                disabled={isLoading || isLoadingPerformers}
-              >
-                <option value="">All Performers</option>
-                {performers.map((user) => (
-                  <option key={user.id} value={user.name}>
-                    {user.name}
-                  </option>
-                ))}
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="filterActivityType">Activity Type</label>
-              <select
-                id="filterActivityType"
-                value={activityType}
-                onChange={(e) => setActivityType(e.target.value as ActivityTypeValue | '')}
-                disabled={isLoading}
-              >
-                <option value="">All Activity Types</option>
-                {ACTIVITY_TYPE_OPTIONS.map((activityTypeOption) => (
-                  <option key={activityTypeOption.value} value={activityTypeOption.value}>
-                    {activityTypeOption.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="filterTag">Tag</label>
-              <input
-                type="text"
-                id="filterTag"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                placeholder="Search tag..."
-                disabled={isLoading}
-              />
-            </div>
-          </div>
         </section>
       </div>
 

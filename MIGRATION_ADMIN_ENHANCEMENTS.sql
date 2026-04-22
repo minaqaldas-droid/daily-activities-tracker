@@ -16,6 +16,9 @@ ALTER TABLE public.users
 ALTER TABLE public.users
   ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS preferred_primary_color TEXT NOT NULL DEFAULT '';
+
 -- 2) Admin helper function (keeps backward compatibility with old role values)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
