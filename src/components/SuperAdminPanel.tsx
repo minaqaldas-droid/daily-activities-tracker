@@ -156,63 +156,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">{success}</div>}
 
-          <div className="form-group">
-            <label htmlFor="webapp-name">In-App Name</label>
-            <input
-              id="webapp-name"
-              type="text"
-              value={webappName}
-              onChange={(e) => setWebappName(e.target.value)}
-              placeholder="Enter in-app name"
-              disabled={isSubmitting || isLoading}
-            />
+          <div className="form-row form-row-two-up">
+            <div className="form-group">
+              <label htmlFor="webapp-name">In-App Name</label>
+              <input
+                id="webapp-name"
+                type="text"
+                value={webappName}
+                onChange={(e) => setWebappName(e.target.value)}
+                placeholder="Enter in-app name"
+                disabled={isSubmitting || isLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="browser-tab-name">Browser Tab Name</label>
+              <input
+                id="browser-tab-name"
+                type="text"
+                value={browserTabName}
+                onChange={(e) => setBrowserTabName(e.target.value)}
+                placeholder="Browser tab title"
+                disabled={isSubmitting || isLoading}
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>In-App Logo (Upload only)</label>
-            <input
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
-              onChange={handleLogoSelect}
-              disabled={isSubmitting || isLoading}
-            />
-            {logoPreview && (
-              <div className="logo-preview">
-                <img src={logoPreview} alt="Logo preview" />
-              </div>
-            )}
-          </div>
+          <div className="form-row form-row-two-up">
+            <div className="form-group">
+              <label>In-App Logo</label>
+              <input
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                onChange={handleLogoSelect}
+                disabled={isSubmitting || isLoading}
+              />
+              {logoPreview && (
+                <div className="logo-preview">
+                  <img src={logoPreview} alt="Logo preview" />
+                </div>
+              )}
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="browser-tab-name">Browser Tab Name</label>
-            <input
-              id="browser-tab-name"
-              type="text"
-              value={browserTabName}
-              onChange={(e) => setBrowserTabName(e.target.value)}
-              placeholder="Browser tab title"
-              disabled={isSubmitting || isLoading}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Favicon (Upload only)</label>
-            <input
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
-              onChange={handleFaviconSelect}
-              disabled={isSubmitting || isLoading}
-            />
-            {faviconPreview && (
-              <div className="logo-preview">
-                <img src={faviconPreview} alt="Favicon preview" />
-              </div>
-            )}
+            <div className="form-group">
+              <label>Favicon</label>
+              <input
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                onChange={handleFaviconSelect}
+                disabled={isSubmitting || isLoading}
+              />
+              {faviconPreview && (
+                <div className="logo-preview">
+                  <img src={faviconPreview} alt="Favicon preview" />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
             <label>Performer Handling</label>
-            <div className="radio-group">
+            <div className="radio-group admin-performer-row">
               <label className="radio-option">
                 <input
                   type="radio"
@@ -222,7 +226,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   onChange={() => setPerformerMode('manual')}
                   disabled={isSubmitting || isLoading}
                 />
-                <span className="radio-label">Manual Entry</span>
+                <span className="radio-label">✍️ Manual Entry</span>
               </label>
               <label className="radio-option">
                 <input
@@ -233,7 +237,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   onChange={() => setPerformerMode('auto')}
                   disabled={isSubmitting || isLoading}
                 />
-                <span className="radio-label">Auto-assign</span>
+                <span className="radio-label">🔐 Auto-assign</span>
               </label>
             </div>
           </div>

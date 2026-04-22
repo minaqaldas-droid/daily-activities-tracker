@@ -259,10 +259,6 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
     <div className="excel-import-container">
       <div className="excel-import-section">
         <h3>Import Activities from Excel</h3>
-        <p className="excel-hint">
-          Upload an Excel file to bulk import activities. Merged cells are carried down to all rows inside
-          the merged range.
-        </p>
 
         <div className="excel-input-group">
           <input
@@ -313,36 +309,6 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>Add H Alarm</td>
                 <td>Added H Alarm at 100C</td>
                 <td>Now Normal</td>
-              </tr>
-              <tr>
-                <td>4-3-26</td>
-                <td></td>
-                <td>CM</td>
-                <td>LCS</td>
-                <td>LCS Alarm</td>
-                <td>CH1 S 7R Fault</td>
-                <td>Checked communication card</td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>03/04/2026</td>
-                <td></td>
-                <td>CM</td>
-                <td>DCS</td>
-                <td>920TT305</td>
-                <td>Reading error</td>
-                <td>Checked transmitter</td>
-                <td></td>
-              </tr>
-              <tr>
-                <td>04-03-2026</td>
-                <td>Sara Ali</td>
-                <td>Mod</td>
-                <td>PLC</td>
-                <td>200FIC310</td>
-                <td>Valve response delay</td>
-                <td>Tuning was made</td>
-                <td>Monitor next shift</td>
               </tr>
             </tbody>
           </table>

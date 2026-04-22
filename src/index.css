@@ -2965,6 +2965,26 @@ body.app-shell-active {
   font-weight: 600;
 }
 
+.admin-performer-row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.admin-performer-row .radio-option {
+  flex: 1;
+  align-items: center;
+}
+
+.admin-performer-row .radio-option input[type="radio"] {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .admin-performer-row {
+    flex-direction: column;
+  }
+}
+
 /* Performer Selection Styles */
 .form-group select {
   width: 100%;
@@ -5262,9 +5282,14 @@ body {
 .form-section h2,
 .list-section h2,
 .dashboard-section-title,
+.dashboard-title,
 .search-filter h3 {
   font-family: var(--font-subheader-family);
   font-size: var(--font-subheader-size);
+}
+
+.dashboard-title {
+  font-weight: 800;
 }
 
 .nav-section-title,

@@ -272,7 +272,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
               </option>
             ))}
           </select>
-          <small className="form-hint">Choose PM, CM, or Mod for this activity.</small>
         </div>
         <div className="form-group">
           <label htmlFor="tag">Tag *</label>
@@ -339,11 +338,6 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
             onChange={handleChange}
             placeholder="Any additional comments (optional)"
           />
-          <small className="form-hint">
-            {performerIsOther && performerMode === 'manual'
-              ? 'Please add any extra context about the custom performer entry here.'
-              : 'Additional notes about this activity.'}
-          </small>
         </div>
       </div>
 

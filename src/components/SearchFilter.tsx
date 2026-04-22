@@ -106,7 +106,6 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
     <form onSubmit={handleSearch} className="search-filter">
       <div className="search-header">
         <h3>🔍 Search & Filter Activities</h3>
-        <p>Combine keyword, date, and activity details to quickly narrow down results.</p>
       </div>
 
       <div className="search-layout">
@@ -127,16 +126,12 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
               disabled={isLoading}
               className="keyword-input"
             />
-            <small>
-              Searches date, performer, system, activity type, tag, problem, action, and comments.
-            </small>
           </div>
         </section>
 
         <section className="search-card">
           <div className="search-card-header">
             <h4>Field Filters</h4>
-            <p>Refine results using structured activity details.</p>
           </div>
 
           <div className="search-grid">
@@ -209,7 +204,6 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
         <section className="search-card search-card-wide">
           <div className="search-card-header">
             <h4>Date Filter</h4>
-            <p>Choose whether to search all time, a specific date, or a date range.</p>
           </div>
 
           <div className="date-mode-grid" role="radiogroup" aria-label="Date filter mode">
