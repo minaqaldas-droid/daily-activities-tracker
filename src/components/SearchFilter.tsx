@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { type ActivityTypeValue, ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
-import { SYSTEM_OPTIONS } from '../constants/systems'
 import { getEditors, type SearchFilters, type Team } from '../supabaseClient'
+import { getSystemFieldLabel, getSystemFieldLabelPlural, getSystemFieldOptions } from '../utils/teamActivityField'
 
 interface SearchFilterProps {
   onSearch: (filters: SearchFilters) => void | Promise<void>
@@ -24,6 +24,9 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
   const [activityType, setActivityType] = useState<ActivityTypeValue | ''>('')
   const [tag, setTag] = useState('')
   const [hasMoc, setHasMoc] = useState(false)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
+  const systemFieldLabelPlural = getSystemFieldLabelPlural(activeTeam)
+  const systemFieldOptions = getSystemFieldOptions(activeTeam)
 
   useEffect(() => {
     let isMounted = true
@@ -139,15 +142,15 @@ export const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, isLoading 
 
           <div className="search-grid">
             <div className="form-group">
-              <label htmlFor="filterSystem">System</label>
+              <label htmlFor="filterSystem">{systemFieldLabel}</label>
               <select
                 id="filterSystem"
                 value={system}
                 onChange={(e) => setSystem(e.target.value)}
                 disabled={isLoading}
               >
-                <option value="">All Systems</option>
-                {SYSTEM_OPTIONS.map((systemOption) => (
+                <option value="">{`All ${systemFieldLabelPlural}`}</option>
+                {systemFieldOptions.map((systemOption) => (
                   <option key={systemOption} value={systemOption}>
                     {systemOption}
                   </option>

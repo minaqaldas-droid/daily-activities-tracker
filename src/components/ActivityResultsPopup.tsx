@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react'
-import { type Activity } from '../supabaseClient'
+import { type Activity, type Team } from '../supabaseClient'
 import { exportActivitiesToExcel } from '../utils/excel'
 import { ActivityList } from './ActivityList'
+import { getSystemFieldLabel } from '../utils/teamActivityField'
 
 interface ActivityResultsPopupProps {
   isOpen: boolean
@@ -9,6 +10,7 @@ interface ActivityResultsPopupProps {
   description?: string
   activities: Activity[]
   exportFilename?: string
+  activeTeam?: Team | null
   onClose: () => void
   onEdit: (activity: Activity) => void
   onDelete: (id: string) => Promise<void>
@@ -48,6 +50,7 @@ export const ActivityResultsPopup: React.FC<ActivityResultsPopupProps> = ({
   description,
   activities,
   exportFilename,
+  activeTeam,
   onClose,
   onEdit,
   onDelete,
@@ -63,6 +66,7 @@ export const ActivityResultsPopup: React.FC<ActivityResultsPopupProps> = ({
   const [keyword, setKeyword] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(20)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
 
   const filteredActivities = useMemo(
     () => activities.filter((activity) => matchesKeyword(activity, keyword)),
@@ -83,6 +87,7 @@ export const ActivityResultsPopup: React.FC<ActivityResultsPopupProps> = ({
       setIsExporting(true)
       const filename = await exportActivitiesToExcel(filteredActivities, {
         filename: exportFilename || `${title.replace(/\s+/g, '_')}.xlsx`,
+        systemFieldLabel,
       })
       onExportSuccess?.(
         `Exported ${filteredActivities.length} activit${filteredActivities.length === 1 ? 'y' : 'ies'} to ${filename}.`
@@ -182,6 +187,7 @@ export const ActivityResultsPopup: React.FC<ActivityResultsPopupProps> = ({
             activities={pagedActivities}
             onEdit={onEdit}
             onDelete={onDelete}
+            activeTeam={activeTeam}
             isLoading={isLoading || isExporting}
             canEdit={canEdit}
             canDelete={canDelete}

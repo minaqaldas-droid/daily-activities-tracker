@@ -4,13 +4,15 @@ import {
   getActivityTypeLabel,
   getActivityTypeShortLabel,
 } from '../constants/activityTypes'
-import { type Activity } from '../supabaseClient'
+import { type Activity, type Team } from '../supabaseClient'
 import { formatDateForDisplay } from '../utils/date'
+import { getSystemFieldLabel } from '../utils/teamActivityField'
 
 interface ActivityListProps {
   activities: Activity[]
   onEdit: (activity: Activity) => void
   onDelete: (id: string) => Promise<void>
+  activeTeam?: Team | null
   isLoading?: boolean
   canEdit?: boolean
   canDelete?: boolean
@@ -84,6 +86,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   activities,
   onEdit,
   onDelete,
+  activeTeam,
   isLoading = false,
   canEdit = true,
   canDelete = true,
@@ -94,6 +97,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [columnWidths, setColumnWidths] = useState<Record<ColumnId, number>>(DEFAULT_COLUMN_WIDTHS)
   const [isResizing, setIsResizing] = useState(false)
   const tableContainerRef = useRef<HTMLDivElement | null>(null)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -245,7 +249,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
               <span className="column-resize-handle" onMouseDown={(event) => handleColumnResizeStart('type', event)} />
             </th>
             <th className="col-system resizable-th">
-              System
+              {systemFieldLabel}
               <span className="column-resize-handle" onMouseDown={(event) => handleColumnResizeStart('system', event)} />
             </th>
             <th className="col-tag resizable-th">
@@ -288,7 +292,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       </span>
                     ) : null}
                   </td>
-                  <td className="col-system" data-label="System">
+                  <td className="col-system" data-label={systemFieldLabel}>
                     <span className="system-badge">{activity.system}</span>
                   </td>
                   <td className="col-tag" data-label="Tag">

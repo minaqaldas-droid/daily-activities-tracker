@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { normalizeImportedActivityType } from '../constants/activityTypes'
 import { type Activity, type Team, createActivities, createActivity } from '../supabaseClient'
 import { parseImportedDate } from '../utils/date'
+import { getSystemFieldLabel } from '../utils/teamActivityField'
 
 interface ExcelImportProps {
   onImportSuccess: (result: ExcelImportResult) => void
@@ -23,7 +24,7 @@ const IMPORT_CHUNK_SIZE = 100
 const COLUMN_ALIASES = {
   date: ['date', 'activitydate', 'workdate'],
   performer: ['performer', 'performedby', 'employee', 'engineer', 'technician', 'operator', 'name'],
-  system: ['system', 'unit', 'area', 'department'],
+  system: ['system', 'shift', 'unit', 'area', 'department'],
   activityType: ['activitytype', 'type', 'maintenancetype', 'worktype', 'jobtype', 'category'],
   tag: ['tag', 'tagnumber', 'tagno', 'instrument', 'instrumenttag', 'instrumentnumber', 'equipment', 'asset'],
   problem: ['problem', 'issue', 'fault', 'description', 'problemstatement'],
@@ -115,6 +116,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importProgress, setImportProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -294,7 +296,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <th>Date</th>
                 <th>Performer</th>
                 <th>Activity Type</th>
-                <th>System</th>
+                <th>{systemFieldLabel}</th>
                 <th>Tag</th>
                 <th>Problem</th>
                 <th>Action</th>
@@ -306,7 +308,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                 <td>3-Apr-2026</td>
                 <td>Ahmed Mohamed</td>
                 <td>PM</td>
-                <td>DCS</td>
+                <td>{systemFieldLabel === 'Shift' ? 'Shift A' : 'DCS'}</td>
                 <td>920TT305</td>
                 <td>Add H Alarm</td>
                 <td>Added H Alarm at 100C</td>

@@ -34,12 +34,12 @@ function sortActivitiesByDateDescending(activities: Activity[]) {
   })
 }
 
-function buildExportRows(activities: Activity[]) {
+function buildExportRows(activities: Activity[], systemFieldLabel: string) {
   return sortActivitiesByDateDescending(activities).map((activity) => ({
     Date: formatExcelDate(activity.date),
     Performer: activity.performer,
     'Activity Type': activity.activityType || '',
-    System: activity.system,
+    [systemFieldLabel]: activity.system,
     Tag: activity.tag,
     Problem: activity.problem,
     Action: activity.action,
@@ -104,6 +104,7 @@ export async function exportActivitiesToExcel(
   options: {
     filename?: string
     sheetName?: string
+    systemFieldLabel?: string
   } = {}
 ) {
   if (activities.length === 0) {
@@ -112,7 +113,7 @@ export async function exportActivitiesToExcel(
 
   const XLSX = await import('xlsx')
 
-  const worksheet = XLSX.utils.json_to_sheet(buildExportRows(activities))
+  const worksheet = XLSX.utils.json_to_sheet(buildExportRows(activities, options.systemFieldLabel || 'System'))
   const workbook = XLSX.utils.book_new()
 
   worksheet['!cols'] = [

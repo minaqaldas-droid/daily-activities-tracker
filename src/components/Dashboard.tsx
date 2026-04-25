@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
 import { type Activity, type Team, getEditors, getEditorsCount } from '../supabaseClient'
+import { getSystemFieldLabel, getSystemFieldLabelPlural } from '../utils/teamActivityField'
 import { ActivityList } from './ActivityList'
 
 export type DashboardResultsFilter =
@@ -297,6 +298,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   })
   const [editorNames, setEditorNames] = useState<string[]>([])
   const [topTagsLimit, setTopTagsLimit] = useState<10 | 20 | 30 | 50 | 100>(20)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
+  const systemFieldLabelPlural = getSystemFieldLabelPlural(activeTeam)
 
   useEffect(() => {
     let isMounted = true
@@ -436,9 +439,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const openSystemResults = (item: ChartDatum) => {
     openActivityResults({
       title: `⚙️ ${item.label}`,
-      description: `Showing ${item.value} activit${item.value === 1 ? 'y' : 'ies'} for system ${item.label}.`,
+      description: `Showing ${item.value} activit${item.value === 1 ? 'y' : 'ies'} for ${systemFieldLabel.toLowerCase()} ${item.label}.`,
       activities: activities.filter((activity) => (activity.system || '') === item.key),
-      exportFilename: `Dashboard_System_${item.label.replace(/\s+/g, '_')}.xlsx`,
+      exportFilename: `Dashboard_${systemFieldLabel}_${item.label.replace(/\s+/g, '_')}.xlsx`,
       filter: { kind: 'system', system: item.key },
     })
   }
@@ -531,20 +534,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
           className={`stat-card ${onOpenActivityResults ? 'dashboard-card-actionable' : ''}`}
           onClick={() =>
             openActivityResults({
-              title: '⚙️ Systems Covered',
-              description: 'Showing activities that include a system value.',
+              title: `⚙️ ${systemFieldLabelPlural} Covered`,
+              description: `Showing activities that include a ${systemFieldLabel.toLowerCase()} value.`,
               activities: activitiesWithSystems,
-              exportFilename: 'Dashboard_Systems_Covered.xlsx',
+              exportFilename: `Dashboard_${systemFieldLabelPlural}_Covered.xlsx`,
               filter: { kind: 'hasField', field: 'system' },
             })
           }
           onKeyDown={(event) =>
             handleDashboardCardKeyDown(event, () =>
               openActivityResults({
-                title: '⚙️ Systems Covered',
-                description: 'Showing activities that include a system value.',
+                title: `⚙️ ${systemFieldLabelPlural} Covered`,
+                description: `Showing activities that include a ${systemFieldLabel.toLowerCase()} value.`,
                 activities: activitiesWithSystems,
-                exportFilename: 'Dashboard_Systems_Covered.xlsx',
+                exportFilename: `Dashboard_${systemFieldLabelPlural}_Covered.xlsx`,
                 filter: { kind: 'hasField', field: 'system' },
               })
             )
@@ -554,7 +557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         >
           <div className="stat-icon">⚙️</div>
           <div className="stat-content">
-            <h3>Systems Covered</h3>
+            <h3>{systemFieldLabelPlural} Covered</h3>
             <p className="stat-value">{stats.uniqueSystems}</p>
           </div>
         </div>
@@ -704,7 +707,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
         <PieChartCard
           icon="⚙️"
-          title="Activities by System"
+          title={`Activities by ${systemFieldLabel}`}
           data={systemChartData}
           total={stats.totalActivities}
           onValueSelect={openSystemResults}
@@ -746,6 +749,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             activities={stats.recentActivities}
             onEdit={onEdit}
             onDelete={onDelete}
+            activeTeam={activeTeam}
             isLoading={isLoading}
             canEdit={canEdit}
             canDelete={canDelete}

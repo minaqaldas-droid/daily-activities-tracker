@@ -860,6 +860,7 @@ function App() {
                       activities={latestSearchActivities}
                       onEdit={handleEditActivity}
                       onDelete={handleDeleteActivity}
+                      activeTeam={effectiveActiveTeam}
                       isLoading={isLoading}
                     canEdit={canEditAction}
                     canDelete={canDeleteAction}
@@ -923,7 +924,7 @@ function App() {
                   </div>
                 }
               >
-                <ExcelExport activities={activities} isLoading={isLoading} />
+                <ExcelExport activities={activities} activeTeam={effectiveActiveTeam} isLoading={isLoading} />
               </Suspense>
             )}
           </div>
@@ -1027,6 +1028,7 @@ function App() {
           description={resultsPopup?.description}
           activities={resultsPopup?.activities || []}
           exportFilename={resultsPopup?.exportFilename}
+          activeTeam={effectiveActiveTeam}
           onClose={() => setResultsPopup(null)}
           onEdit={handleEditActivity}
           onDelete={handleDeleteActivity}

@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import { type Activity } from '../supabaseClient'
+import { type Activity, type Team } from '../supabaseClient'
 import { exportActivitiesToExcel } from '../utils/excel'
+import { getSystemFieldLabel } from '../utils/teamActivityField'
 
 interface ExcelExportProps {
   activities: Activity[]
+  activeTeam?: Team | null
   isLoading?: boolean
 }
 
@@ -20,6 +22,7 @@ function isActivityWithinDateRange(activity: Activity, startDate: string, endDat
 
 export const ExcelExport: React.FC<ExcelExportProps> = ({
   activities,
+  activeTeam,
   isLoading = false,
 }) => {
   const [dateRange, setDateRange] = useState({
@@ -28,6 +31,7 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
   })
   const [exportFormat, setExportFormat] = useState<'current' | 'dateRange'>('dateRange')
   const [isPreparing, setIsPreparing] = useState(false)
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
 
   const dateRangeActivities = activities.filter((activity) =>
     isActivityWithinDateRange(activity, dateRange.startDate, dateRange.endDate)
@@ -48,6 +52,7 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
           exportFormat === 'dateRange'
             ? `Activities_${dateRange.startDate}_to_${dateRange.endDate}.xlsx`
             : `Activities_${new Date().toISOString().split('T')[0]}.xlsx`,
+        systemFieldLabel,
       })
     } finally {
       setIsPreparing(false)

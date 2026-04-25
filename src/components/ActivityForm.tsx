@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { ACTIVITY_TYPE_OPTIONS } from '../constants/activityTypes'
-import { SYSTEM_OPTIONS } from '../constants/systems'
 import { type Activity, type Team, getEditors } from '../supabaseClient'
 import { buildCommentWithPrefixes, parseCommentPrefixes } from '../utils/comments'
+import { getSystemFieldLabel, getSystemFieldOptions } from '../utils/teamActivityField'
 
 interface ActivityFormProps {
   onSubmit: (activity: Activity) => Promise<void>
@@ -64,6 +64,8 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
   const [performerIsOther, setPerformerIsOther] = useState(false)
   const [isMocActivity, setIsMocActivity] = useState(false)
   const [otherPerformerName, setOtherPerformerName] = useState('')
+  const systemFieldLabel = getSystemFieldLabel(activeTeam)
+  const systemFieldOptions = getSystemFieldOptions(activeTeam)
 
   useEffect(() => {
     if (initialData) {
@@ -260,10 +262,10 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
         </div>
 
         <div className="form-group">
-          <label htmlFor="system">System *</label>
+          <label htmlFor="system">{systemFieldLabel} *</label>
           <select id="system" name="system" value={formData.system} onChange={handleChange} required>
-            <option value="">-- Select System --</option>
-            {SYSTEM_OPTIONS.map((system) => (
+            <option value="">{`-- Select ${systemFieldLabel} --`}</option>
+            {systemFieldOptions.map((system) => (
               <option key={system} value={system}>
                 {system}
               </option>
