@@ -11,11 +11,8 @@ const DEFAULT_SETTINGS: Settings = {
   primary_color: '#667eea',
   performer_mode: 'manual',
   header_font_family: '',
-  header_font_size: '2.5rem',
   subheader_font_family: '',
-  subheader_font_size: '1.5rem',
   sidebar_font_family: '',
-  sidebar_font_size: '0.95rem',
   activity_field_config: DEFAULT_ACTIVITY_FIELD_CONFIG,
   dashboard_chart_config: DEFAULT_DASHBOARD_CHART_CONFIG,
 }

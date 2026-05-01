@@ -30,12 +30,12 @@ function getSortedIds(ids: string[]) {
   return [...ids].sort()
 }
 
-function getTeamRole(user: ManagedUserDraft, team: Pick<ManagedTeam, 'id' | 'uses_legacy_tables'>): UserRole {
-  return user.team_roles[team.id] || (team.uses_legacy_tables ? user.role : 'viewer')
+function getTeamRole(user: ManagedUserDraft, team: Pick<ManagedTeam, 'id'>): UserRole {
+  return user.team_roles[team.id] || 'viewer'
 }
 
 function isManagedSuperadmin(user: { role?: unknown; is_superadmin?: unknown }) {
-  return ('is_superadmin' in user && user.is_superadmin === true) || String(user.role) === 'superadmin'
+  return 'is_superadmin' in user && user.is_superadmin === true
 }
 
 function haveSameTeamAssignments(first: ManagedUserDraft, second: ManagedUserDraft, teams: ManagedTeam[]) {
@@ -50,8 +50,8 @@ function haveSameTeamAssignments(first: ManagedUserDraft, second: ManagedUserDra
   }
 
   return teams.every((team) => {
-    const firstIsMember = team.uses_legacy_tables || first.team_ids.includes(team.id)
-    const secondIsMember = team.uses_legacy_tables || second.team_ids.includes(team.id)
+    const firstIsMember = first.team_ids.includes(team.id)
+    const secondIsMember = second.team_ids.includes(team.id)
 
     if (!firstIsMember && !secondIsMember) {
       return true
@@ -264,11 +264,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
   }
 
   const handleDeleteTeam = async (team: ManagedTeam) => {
-    if (team.slug === 'automation') {
-      setError('Automation is the primary migrated team and cannot be deleted.')
-      return
-    }
-
     const confirmed = confirm(
       `Delete team "${team.name}"? This will delete its team activities, settings, and memberships from the unified team tables.`
     )
@@ -338,18 +333,13 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
           continue
         }
 
-        const legacyTeam = teams.find((team) => team.uses_legacy_tables)
-        const legacyRoleChanged = Boolean(
-          legacyTeam && getTeamRole(original, legacyTeam) !== getTeamRole(draftUser, legacyTeam)
-        )
         const hasProfileChanges =
           original.role !== draftUser.role ||
-          original.is_approved !== draftUser.is_approved ||
-          legacyRoleChanged
+          original.is_approved !== draftUser.is_approved
 
         if (hasProfileChanges) {
           await updateManagedUser(draftUser.id, {
-            role: legacyTeam ? getTeamRole(draftUser, legacyTeam) : draftUser.role,
+            role: draftUser.role,
             isApproved:
               original.is_approved !== draftUser.is_approved ? draftUser.is_approved : undefined,
           })
@@ -364,11 +354,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
           }
 
           for (const team of teams) {
-            const wasMember = team.uses_legacy_tables || original.team_ids.includes(team.id)
-            const isMember = team.uses_legacy_tables || draftUser.team_ids.includes(team.id)
+            const wasMember = original.team_ids.includes(team.id)
+            const isMember = draftUser.team_ids.includes(team.id)
             const originalRole = getTeamRole(original, team)
             const draftRole = getTeamRole(draftUser, team)
-            const membershipChanged = !team.uses_legacy_tables && wasMember !== isMember
+            const membershipChanged = wasMember !== isMember
             const roleChanged = isMember && originalRole !== draftRole
 
             if (!membershipChanged && !roleChanged) {
@@ -484,8 +474,8 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
                     type="button"
                     className="team-chip-delete"
                     onClick={() => void handleDeleteTeam(team)}
-                    disabled={team.slug === 'automation' || isMutating}
-                    title={team.slug === 'automation' ? 'Automation cannot be deleted' : `Delete ${team.name}`}
+                    disabled={isMutating}
+                    title={`Delete ${team.name}`}
                     aria-label={`Delete ${team.name}`}
                   >
                     Delete
@@ -536,7 +526,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
                     <td data-label="Team Roles">
                       <div className="team-role-grid">
                         {teams.map((team) => {
-                          const isAssigned = team.uses_legacy_tables || managedUser.team_ids.includes(team.id)
+                          const isAssigned = managedUser.team_ids.includes(team.id)
 
                           return (
                             <div key={team.id} className={`team-role-row ${isAssigned ? 'assigned' : ''}`}>
@@ -544,7 +534,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ curren
                                 <input
                                   type="checkbox"
                                   checked={isAssigned}
-                                  disabled={team.uses_legacy_tables || isMutating}
+                                  disabled={isMutating}
                                   onChange={(event) =>
                                     handleTeamToggle(managedUser, team.id, event.target.checked)
                                   }

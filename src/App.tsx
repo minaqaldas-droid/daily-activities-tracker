@@ -301,12 +301,18 @@ function App() {
         return
       }
 
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to load activities. Make sure Supabase is configured correctly.'
+      const noTeamMessage = 'No active team is selected. Assign the user to a team and try again.'
+
       setMessage({
         type: 'error',
         text:
-          error instanceof Error
-            ? error.message
-            : 'Failed to load activities. Make sure Supabase is configured correctly.',
+          errorMessage === noTeamMessage
+            ? 'Your account is not assigned to a team yet. Ask an admin to assign a team, or run the team-membership repair migration.'
+            : errorMessage,
       })
     })
 
