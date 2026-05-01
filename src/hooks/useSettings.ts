@@ -217,16 +217,10 @@ export function useSettings(isEnabled: boolean, preferredPrimaryColor = '', acti
     root.style.setProperty('--font-header-family', settings.header_font_family?.trim() || 'inherit')
     root.style.setProperty('--font-subheader-family', settings.subheader_font_family?.trim() || 'inherit')
     root.style.setProperty('--font-sidebar-family', settings.sidebar_font_family?.trim() || 'inherit')
-    root.style.setProperty('--font-header-size', settings.header_font_size?.trim() || '2.5rem')
-    root.style.setProperty('--font-subheader-size', settings.subheader_font_size?.trim() || '1.5rem')
-    root.style.setProperty('--font-sidebar-size', settings.sidebar_font_size?.trim() || '0.95rem')
   }, [
     settings.header_font_family,
-    settings.header_font_size,
     settings.subheader_font_family,
-    settings.subheader_font_size,
     settings.sidebar_font_family,
-    settings.sidebar_font_size,
   ])
 
   return {

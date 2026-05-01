@@ -35,7 +35,6 @@ export interface ActivityFieldDefinition {
 }
 
 export const SHIFT_OPTIONS = ['A', 'B', 'C', 'D'] as const
-export const INSTRUMENT_TYPE_OPTIONS = ['Inst.', 'F&GS'] as const
 
 export const ACTIVITY_FIELD_DEFINITIONS: ActivityFieldDefinition[] = [
   {
@@ -95,9 +94,8 @@ export const ACTIVITY_FIELD_DEFINITIONS: ActivityFieldDefinition[] = [
   {
     key: 'instrumentType',
     label: 'Instrument Type',
-    placeholder: 'Select instrument type',
-    type: 'select',
-    options: [...INSTRUMENT_TYPE_OPTIONS],
+    placeholder: 'Enter instrument type',
+    type: 'text',
     defaultEnabled: false,
     defaultRequired: false,
     defaultOrder: 6,

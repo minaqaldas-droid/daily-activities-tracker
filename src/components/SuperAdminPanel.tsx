@@ -63,11 +63,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [browserTabName, setBrowserTabName] = useState('')
   const [performerMode, setPerformerMode] = useState<'manual' | 'auto'>('manual')
   const [headerFontFamily, setHeaderFontFamily] = useState('')
-  const [headerFontSize, setHeaderFontSize] = useState('2.5rem')
   const [subheaderFontFamily, setSubheaderFontFamily] = useState('')
-  const [subheaderFontSize, setSubheaderFontSize] = useState('1.5rem')
   const [sidebarFontFamily, setSidebarFontFamily] = useState('')
-  const [sidebarFontSize, setSidebarFontSize] = useState('0.95rem')
   const [activityFieldConfig, setActivityFieldConfig] = useState(normalizeSequentialOrder(currentSettings))
   const [dashboardChartConfig, setDashboardChartConfig] = useState(normalizeSequentialChartOrder(currentSettings))
   const [logoPreview, setLogoPreview] = useState('')
@@ -85,11 +82,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setBrowserTabName(currentSettings.browser_tab_name || currentSettings.webapp_name || 'Daily Activities Tracker')
     setPerformerMode(currentSettings.performer_mode || 'manual')
     setHeaderFontFamily(currentSettings.header_font_family || '')
-    setHeaderFontSize(currentSettings.header_font_size || '2.5rem')
     setSubheaderFontFamily(currentSettings.subheader_font_family || '')
-    setSubheaderFontSize(currentSettings.subheader_font_size || '1.5rem')
     setSidebarFontFamily(currentSettings.sidebar_font_family || '')
-    setSidebarFontSize(currentSettings.sidebar_font_size || '0.95rem')
     setActivityFieldConfig(normalizeSequentialOrder(currentSettings))
     setDashboardChartConfig(normalizeSequentialChartOrder(currentSettings))
     setLogoPreview(currentSettings.logo_url || '')
@@ -162,11 +156,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           favicon_url: nextFaviconUrl,
           performer_mode: performerMode,
           header_font_family: headerFontFamily.trim(),
-          header_font_size: headerFontSize.trim(),
           subheader_font_family: subheaderFontFamily.trim(),
-          subheader_font_size: subheaderFontSize.trim(),
           sidebar_font_family: sidebarFontFamily.trim(),
-          sidebar_font_size: sidebarFontSize.trim(),
           activity_field_config: activityFieldConfig,
           dashboard_chart_config: dashboardChartConfig,
         },
@@ -371,9 +362,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Headers (font + size)</label>
-            <div className="form-row form-row-two-up">
+          <div className="form-row admin-typography-row">
+            <div className="form-group">
+              <label>Headers</label>
               <input
                 type="text"
                 value={headerFontFamily}
@@ -381,19 +372,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 placeholder="Font family"
                 disabled={isSubmitting || isLoading}
               />
-              <input
-                type="text"
-                value={headerFontSize}
-                onChange={(e) => setHeaderFontSize(e.target.value)}
-                placeholder="Size"
-                disabled={isSubmitting || isLoading}
-              />
             </div>
-          </div>
 
-          <div className="form-group">
-            <label>Subheaders (font + size)</label>
-            <div className="form-row form-row-two-up">
+            <div className="form-group">
+              <label>Subheaders</label>
               <input
                 type="text"
                 value={subheaderFontFamily}
@@ -401,19 +383,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 placeholder="Font family"
                 disabled={isSubmitting || isLoading}
               />
-              <input
-                type="text"
-                value={subheaderFontSize}
-                onChange={(e) => setSubheaderFontSize(e.target.value)}
-                placeholder="Size"
-                disabled={isSubmitting || isLoading}
-              />
             </div>
-          </div>
 
-          <div className="form-group">
-            <label>Sidebar (font + size)</label>
-            <div className="form-row form-row-two-up">
+            <div className="form-group">
+              <label>Sidebar</label>
               <input
                 type="text"
                 value={sidebarFontFamily}
@@ -421,17 +394,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 placeholder="Font family"
                 disabled={isSubmitting || isLoading}
               />
-              <input
-                type="text"
-                value={sidebarFontSize}
-                onChange={(e) => setSidebarFontSize(e.target.value)}
-                placeholder="Size"
-                disabled={isSubmitting || isLoading}
-              />
             </div>
           </div>
 
-          {user.is_superadmin && (
+          {user.role === 'admin' && (
             <div className="form-group">
               <label>Team Activity Fields</label>
               <div className="team-activity-fields-grid">
@@ -497,7 +463,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {user.is_superadmin && (
+          {user.role === 'admin' && (
             <div className="form-group">
               <label>Dashboard Charts</label>
               <div className="team-activity-fields-grid">

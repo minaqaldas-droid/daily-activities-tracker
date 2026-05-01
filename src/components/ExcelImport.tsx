@@ -322,7 +322,7 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
                             : field.key === 'permitNumber'
                               ? 'PTW-2048'
                               : field.key === 'instrumentType'
-                                ? 'Inst.'
+                                ? 'Pressure Transmitter'
                                 : field.key === 'activityType'
                                   ? 'PM'
                                   : field.key === 'tag'

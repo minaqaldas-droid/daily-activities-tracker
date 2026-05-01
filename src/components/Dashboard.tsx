@@ -451,6 +451,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         data={performerChartData}
         total={stats.totalActivities}
         onValueSelect={openPerformerResults}
+        className="performer-chart-card"
       />
     ),
     system: (

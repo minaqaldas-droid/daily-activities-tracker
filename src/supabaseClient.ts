@@ -356,7 +356,7 @@ export const EDITOR_PERMISSIONS: FeaturePermissions = {
   add: true,
   edit: true,
   search: true,
-  import: true,
+  import: false,
   export: true,
   edit_action: true,
   delete_action: true,
