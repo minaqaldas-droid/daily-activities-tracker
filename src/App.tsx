@@ -183,7 +183,7 @@ function matchesResultsPopupFilter(activity: Activity, filter?: ResultsPopupFilt
     case 'hasField':
       return Boolean((activity[filter.field] || '').trim())
     case 'recentlyEdited':
-      return Boolean(String(activity.editedBy || '').trim())
+      return Boolean(String(activity.edited_at || '').trim())
     case 'sinceDate':
       return (activity.date || '') >= filter.sinceDate
     case 'activityType':

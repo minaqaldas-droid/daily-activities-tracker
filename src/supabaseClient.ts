@@ -1782,7 +1782,7 @@ export async function getActivitiesForDashboardFilter(filter: DashboardResultsFi
           query = query.not(filter.field, 'is', null).neq(filter.field, '')
           break
         case 'recentlyEdited':
-          query = query.not('editedBy', 'is', null).neq('editedBy', '')
+          query = query.not('edited_at', 'is', null).neq('edited_at', '')
           break
         case 'sinceDate':
           query = query.gte('date', filter.sinceDate)

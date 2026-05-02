@@ -325,7 +325,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const myActivities = activities.filter((activity) => activity.performer === performerName).length
     const recentActivities = activities.slice(0, 5)
     const recentlyEditedActivities = activities
-      .filter((activity) => String(activity.editedBy || '').trim())
+      .filter((activity) => String(activity.edited_at || '').trim())
       .sort((first, second) => {
         const firstDate = first.edited_at || first.created_at || first.date || ''
         const secondDate = second.edited_at || second.created_at || second.date || ''
