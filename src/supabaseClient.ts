@@ -6,9 +6,9 @@ import {
   type User as SupabaseAuthUser,
   type UserAttributes,
 } from '@supabase/supabase-js'
-import { type ActivityTypeValue, getActivityTypeLabel } from './constants/activityTypes'
+import { type ActivityTypeValue } from './constants/activityTypes'
 import { type DashboardResultsFilter } from './types/activityResults'
-import { formatDateForDisplay, normalizeDateForApp } from './utils/date'
+import { normalizeDateForApp } from './utils/date'
 import {
   DEFAULT_ACTIVITY_FIELD_CONFIG,
   DEFAULT_ACTIVITY_FIELD_DEFINITIONS,
@@ -34,6 +34,7 @@ import {
   type StoredDashboardCardDefinition,
 } from './utils/dashboardCards'
 import { DEFAULT_LAYOUT_CONFIG, type LayoutConfig } from './utils/layoutConfig'
+import { matchesActivityKeyword } from './utils/activityKeywordSearch'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -922,10 +923,6 @@ async function fetchAllActivitiesBatched(buildQuery: () => any, maxRows = Number
   }
 
   return rows
-}
-
-function escapePostgrestFilterValue(value: string) {
-  return value.replace(/[%*,()]/g, '\\$&')
 }
 
 function hasCommentCheckboxToken(comments: string | undefined | null, label: string) {
@@ -1932,7 +1929,7 @@ export async function uploadBrandingAsset(adminUserId: string, kind: 'logo' | 'f
   return data.publicUrl
 }
 
-export async function searchActivities(filters: SearchFilters, team?: Team | null) {
+export async function searchActivities(filters: SearchFilters, team?: Team | null, settings?: Settings | null) {
   try {
     if (!matchesSearchFilters(filters)) {
       return getActivities(team)
@@ -2010,28 +2007,6 @@ export async function searchActivities(filters: SearchFilters, team?: Team | nul
       })
     }
 
-    if (filters.keyword) {
-      const keyword = escapePostgrestFilterValue(filters.keyword.trim())
-      if (keyword) {
-        const keywordPattern = `*${keyword}*`
-        query = query.or(
-          [
-            `date.ilike.${keywordPattern}`,
-            `performer.ilike.${keywordPattern}`,
-            `system.ilike.${keywordPattern}`,
-            `shift.ilike.${keywordPattern}`,
-            `permit_number.ilike.${keywordPattern}`,
-            `instrument_type.ilike.${keywordPattern}`,
-            `activityType.ilike.${keywordPattern}`,
-            `tag.ilike.${keywordPattern}`,
-            `problem.ilike.${keywordPattern}`,
-            `action.ilike.${keywordPattern}`,
-            `comments.ilike.${keywordPattern}`,
-          ].join(',')
-        )
-      }
-    }
-
     const data = await fetchAllActivitiesBatched(() =>
       query
         .order('date', { ascending: false })
@@ -2059,25 +2034,7 @@ export async function searchActivities(filters: SearchFilters, team?: Team | nul
     }
 
     if (filters.keyword) {
-      const keyword = filters.keyword.toLowerCase()
-      results = results.filter((activity) =>
-        [
-          activity.date,
-          formatDateForDisplay(activity.date),
-          activity.performer,
-          activity.system,
-          activity.shift,
-          activity.permitNumber,
-          activity.instrumentType,
-          activity.activityType,
-          getActivityTypeLabel(activity.activityType),
-          activity.tag,
-          activity.problem,
-          activity.action,
-          activity.comments ?? '',
-          ...Object.values(activity.customFields || {}),
-        ].some((field) => String(field).toLowerCase().includes(keyword))
-      )
+      results = results.filter((activity) => matchesActivityKeyword(activity, filters.keyword || '', settings))
     }
 
     if (filters.hasMoc) {

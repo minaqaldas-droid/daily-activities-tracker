@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type Activity,
   type SearchFilters,
+  type Settings,
   type Team,
   createActivity,
   deleteActivity,
@@ -37,6 +38,7 @@ interface UseActivitiesOptions {
   currentUserName?: string
   performerMode?: 'manual' | 'auto'
   activeTeam?: Team | null
+  settings?: Settings | null
 }
 
 interface SaveActivityOptions {
@@ -51,7 +53,7 @@ interface TeamActivitiesCacheEntry {
   searchResultsByKey: Record<string, Activity[]>
 }
 
-export function useActivities({ currentUserName = '', performerMode = 'manual', activeTeam }: UseActivitiesOptions) {
+export function useActivities({ currentUserName = '', performerMode = 'manual', activeTeam, settings }: UseActivitiesOptions) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [latestActivities, setLatestActivities] = useState<Activity[]>([])
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([])
@@ -107,7 +109,7 @@ export function useActivities({ currentUserName = '', performerMode = 'manual', 
       }
 
       if (shouldApplySearch) {
-        const results = await searchActivities(currentFilters, activeTeam)
+        const results = await searchActivities(currentFilters, activeTeam, settings)
         nextCacheEntry.searchResultsByKey[searchKey] = results
         activitiesCacheRef.current.set(teamKey, nextCacheEntry)
 
@@ -296,7 +298,7 @@ export function useActivities({ currentUserName = '', performerMode = 'manual', 
         return cachedSearchResults
       }
 
-      const results = await searchActivities(filters, activeTeam)
+      const results = await searchActivities(filters, activeTeam, settings)
       const nextCacheEntry: TeamActivitiesCacheEntry = {
         activities: cachedEntry?.activities,
         recentByLimit: cachedEntry?.recentByLimit || {},
@@ -312,7 +314,7 @@ export function useActivities({ currentUserName = '', performerMode = 'manual', 
     } finally {
       setIsLoading(false)
     }
-  }, [activeTeam])
+  }, [activeTeam, settings])
 
   const resetActivities = useCallback(() => {
     setActivities([])

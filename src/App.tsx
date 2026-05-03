@@ -12,7 +12,6 @@ import { SearchFilter } from './components/SearchFilter'
 import { Sidebar } from './components/Sidebar'
 import { AdminPanel } from './components/SuperAdminPanel'
 import { UserManagementModal } from './components/UserManagementModal'
-import { getActivityTypeLabel } from './constants/activityTypes'
 import { useActivities } from './hooks/useActivities'
 import { useAuth } from './hooks/useAuth'
 import { useDashboardActivities } from './hooks/useDashboardActivities'
@@ -25,10 +24,16 @@ import {
   type Settings,
   type Team,
   type User,
-  updateSettings,
 } from './supabaseClient'
 import { formatDateForDisplay } from './utils/date'
-import { getDashboardChartDefinitions, normalizeStoredDashboardChartDefinitions } from './utils/dashboardCharts'
+import { getDashboardChartDefinitions } from './utils/dashboardCharts'
+import { matchesActivityKeyword } from './utils/activityKeywordSearch'
+import {
+  applyDashboardChartDisplayCountOverrides,
+  readDashboardChartDisplayCountOverrides,
+  writeDashboardChartDisplayCountOverrides,
+  type DashboardChartDisplayCountOverrides,
+} from './utils/dashboardChartPreferences'
 import { type DashboardResultsFilter } from './types/activityResults'
 
 const ExcelImport = lazy(() =>
@@ -81,7 +86,7 @@ function includesIgnoreCase(value: string, keyword: string) {
   return value.toLowerCase().includes(keyword.toLowerCase())
 }
 
-function matchesSearchFiltersForActivity(activity: Activity, filters: SearchFilters) {
+function matchesSearchFiltersForActivity(activity: Activity, filters: SearchFilters, settings?: Settings | null) {
   if (!hasSearchFilters(filters)) {
     return true
   }
@@ -164,30 +169,7 @@ function matchesSearchFiltersForActivity(activity: Activity, filters: SearchFilt
   }
 
   if (filters.keyword) {
-    const keyword = filters.keyword.toLowerCase()
-    const searchableFields = [
-      activity.date,
-      formatDateForDisplay(activity.date),
-      activity.performer,
-      activity.system,
-      activity.shift,
-      activity.permitNumber,
-      activity.instrumentType,
-      activity.activityType || '',
-      getActivityTypeLabel(activity.activityType),
-      activity.tag,
-      activity.problem,
-      activity.action,
-      activity.comments || '',
-      ...Object.values(activity.customFields || {}),
-    ]
-    const hasKeywordMatch = searchableFields.some((field) =>
-      String(field || '')
-        .toLowerCase()
-        .includes(keyword)
-    )
-
-    if (!hasKeywordMatch) {
+    if (!matchesActivityKeyword(activity, filters.keyword, settings)) {
       return false
     }
   }
@@ -195,14 +177,14 @@ function matchesSearchFiltersForActivity(activity: Activity, filters: SearchFilt
   return true
 }
 
-function matchesResultsPopupFilter(activity: Activity, filter?: ResultsPopupFilter) {
+function matchesResultsPopupFilter(activity: Activity, filter?: ResultsPopupFilter, settings?: Settings | null) {
   if (!filter) {
     return true
   }
 
   switch (filter.kind) {
     case 'search':
-      return matchesSearchFiltersForActivity(activity, filter.filters)
+      return matchesSearchFiltersForActivity(activity, filter.filters, settings)
     case 'all':
       return true
     case 'performer':
@@ -278,6 +260,7 @@ function App() {
     currentUserName: appUser?.name,
     performerMode: settings.performer_mode || 'manual',
     activeTeam: effectiveActiveTeam,
+    settings,
   })
   const {
     summaryActivities,
@@ -308,6 +291,7 @@ function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [dashboardChartDisplayCountOverrides, setDashboardChartDisplayCountOverrides] = useState<DashboardChartDisplayCountOverrides>({})
 
   useEffect(() => {
     if (!currentUser) {
@@ -322,6 +306,7 @@ function App() {
       setShowUserManagement(false)
       setResultsPopup(null)
       setIsMobileSidebarOpen(false)
+      setDashboardChartDisplayCountOverrides({})
       return
     }
 
@@ -334,6 +319,17 @@ function App() {
       return currentUser.active_team || availableTeams[0] || null
     })
   }, [currentUser, resetActivities, resetDashboardActivities])
+
+  useEffect(() => {
+    if (!appUser) {
+      setDashboardChartDisplayCountOverrides({})
+      return
+    }
+
+    setDashboardChartDisplayCountOverrides(
+      readDashboardChartDisplayCountOverrides(appUser.id, effectiveActiveTeam?.id || '')
+    )
+  }, [appUser, effectiveActiveTeam?.id])
 
   useEffect(() => {
     if (!currentUser || typeof window === 'undefined' || typeof document === 'undefined') {
@@ -557,6 +553,10 @@ function App() {
   const canExport = hasPermission(appUser, 'export')
   const canEditAction = hasPermission(appUser, 'edit_action')
   const canDeleteAction = hasPermission(appUser, 'delete_action')
+  const dashboardSettings = useMemo(
+    () => applyDashboardChartDisplayCountOverrides(settings, dashboardChartDisplayCountOverrides),
+    [dashboardChartDisplayCountOverrides, settings]
+  )
 
   const handleBackToTop = () => {
     if (typeof window === 'undefined') {
@@ -630,7 +630,7 @@ function App() {
               return prev
             }
 
-            if (!matchesResultsPopupFilter(editedActivity, prev.filter)) {
+            if (!matchesResultsPopupFilter(editedActivity, prev.filter, settings)) {
               return {
                 ...prev,
                 activities: prev.activities.filter((item) => item.id !== editedActivityId),
@@ -758,60 +758,24 @@ function App() {
     setMessage({ type: 'success', text: 'Settings updated successfully.' })
   }
 
-  const handleDashboardChartDisplayCountChange = async (chartKey: string, maxItems: number) => {
-    if (!appUser || !effectiveActiveTeam) {
+  const handleDashboardChartDisplayCountChange = (chartKey: string, maxItems: number) => {
+    if (!appUser) {
       return
     }
 
-    const currentChart = getDashboardChartDefinitions(settings).find((chart) => chart.key === chartKey)
+    const currentChart = getDashboardChartDefinitions(dashboardSettings).find((chart) => chart.key === chartKey)
     if (!currentChart) {
       return
     }
 
-    const normalizedDefinitions = normalizeStoredDashboardChartDefinitions(settings.dashboard_chart_definitions, settings)
-    const existingDefinition = normalizedDefinitions.find((definition) => definition.key === chartKey)
-    const nextDefinition = {
-      key: chartKey,
-      label: existingDefinition?.label || currentChart.label,
-      fieldKey: existingDefinition?.fieldKey || currentChart.fieldKey,
-      chartType: existingDefinition?.chartType || currentChart.chartType,
-      maxItems,
-      includeEmpty: existingDefinition?.includeEmpty ?? currentChart.includeEmpty,
-      archived: existingDefinition?.archived ?? false,
-    }
-    const existingIndex = normalizedDefinitions.findIndex((definition) => definition.key === chartKey)
-    const nextDefinitions =
-      existingIndex === -1
-        ? [...normalizedDefinitions, nextDefinition]
-        : normalizedDefinitions.map((definition, index) => (index === existingIndex ? nextDefinition : definition))
-    const previousSettings = settings
-
-    setSettings((previous) => ({
-      ...previous,
-      dashboard_chart_definitions: nextDefinitions,
-    }))
-
-    try {
-      const updatedSettings = await updateSettings(
-        {
-          dashboard_chart_definitions: nextDefinitions,
-        },
-        appUser.id,
-        effectiveActiveTeam
-      )
-
-      setSettings((previous) => ({
+    setDashboardChartDisplayCountOverrides((previous) => {
+      const nextOverrides = {
         ...previous,
-        ...updatedSettings,
-        dashboard_chart_definitions: normalizeStoredDashboardChartDefinitions(updatedSettings.dashboard_chart_definitions, updatedSettings),
-      }))
-    } catch (error) {
-      setSettings(previousSettings)
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Failed to save chart display count.',
-      })
-    }
+        [chartKey]: maxItems,
+      }
+      writeDashboardChartDisplayCountOverrides(appUser.id, effectiveActiveTeam?.id || '', nextOverrides)
+      return nextOverrides
+    })
   }
 
   const handleOpenDashboardResults = async (request: DashboardActivityRequest) => {
@@ -1028,7 +992,7 @@ function App() {
                   recentActivities={recentActivities}
                   performerName={appUser.name}
                   activeTeam={effectiveActiveTeam}
-                  settings={settings}
+                  settings={dashboardSettings}
                   onEdit={handleEditActivity}
                   onDelete={handleDeleteActivity}
                   isLoading={isLoading || isDashboardLoading}
