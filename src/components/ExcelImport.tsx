@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react'
 import { normalizeImportedActivityType } from '../constants/activityTypes'
 import { type Activity, type Settings, type Team, createActivities, createActivity } from '../supabaseClient'
-import { getActivityFieldConfig, getOrderedActivityFields } from '../utils/activityFields'
+import { getActivityFieldConfig, getOrderedActivityFields, setActivityFieldValue, type ActivityFieldDefinition } from '../utils/activityFields'
+import { parseCommentPrefixes } from '../utils/comments'
 import { parseImportedDate } from '../utils/date'
 
 interface ExcelImportProps {
@@ -41,7 +42,7 @@ function normalizeText(value: unknown) {
 }
 
 function normalizeColumnKey(value: unknown) {
-  return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '')
+  return normalizeText(value).toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '')
 }
 
 function normalizeDate(value: unknown) {
@@ -66,6 +67,15 @@ function getRowValue(row: ParsedWorksheetRow, aliases: readonly string[]) {
   }
 
   return ''
+}
+
+function getFieldImportAliases(field: ActivityFieldDefinition) {
+  const legacyAliases = field.key in COLUMN_ALIASES ? [...COLUMN_ALIASES[field.key as keyof typeof COLUMN_ALIASES]] : []
+  return Array.from(new Set([normalizeColumnKey(field.label), normalizeColumnKey(field.key), ...legacyAliases].filter(Boolean)))
+}
+
+function getFieldImportedValue(row: ParsedWorksheetRow, field: ActivityFieldDefinition) {
+  return getRowValue(row, getFieldImportAliases(field))
 }
 
 function applyMergedCellValues(rows: unknown[][], merges: MergeRange[]) {
@@ -122,7 +132,9 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
   const [importProgress, setImportProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
   const activityFieldConfig = getActivityFieldConfig(settings)
-  const visibleFields = getOrderedActivityFields(settings).filter((field) => activityFieldConfig[field.key].enabled && field.type !== 'checkbox')
+  const enabledFields = getOrderedActivityFields(settings).filter((field) => activityFieldConfig[field.key].enabled)
+  const visibleFields = enabledFields.filter((field) => field.type !== 'checkbox')
+  const checkboxFields = enabledFields.filter((field) => field.type === 'checkbox')
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -183,18 +195,52 @@ export const ExcelImport: React.FC<ExcelImportProps> = ({
           return
         }
 
-        activities.push({
+        const importedActivity = visibleFields.reduce<Activity>((activity, field) => {
+          const rawValue = getFieldImportedValue(normalizedRow, field)
+
+          if (field.key === 'date') {
+            return setActivityFieldValue(activity, field.key, normalizeDate(rawValue))
+          }
+
+          if (field.key === 'activityType') {
+            return setActivityFieldValue(activity, field.key, activityType)
+          }
+
+          return setActivityFieldValue(activity, field.key, normalizeText(rawValue))
+        }, {
           date: normalizeDate(getRowValue(normalizedRow, COLUMN_ALIASES.date)),
-          performer: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.performer)),
-          system: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.system)),
-          shift: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.shift)),
-          permitNumber: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.permitNumber)),
-          instrumentType: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.instrumentType)),
-          activityType,
-          tag: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.tag)),
-          problem: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.problem)),
-          action: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.action)),
-          comments: normalizeText(getRowValue(normalizedRow, COLUMN_ALIASES.comments)),
+          performer: '',
+          system: '',
+          shift: '',
+          permitNumber: '',
+          instrumentType: '',
+          activityType: '',
+          tag: '',
+          problem: '',
+          action: '',
+          comments: '',
+          customFields: {},
+        })
+
+        const parsedComment = parseCommentPrefixes(importedActivity.comments)
+        const checkboxFieldMap = new Map(checkboxFields.map((field) => [field.label.trim().toLowerCase(), field]))
+        const importedCustomFields = { ...(importedActivity.customFields || {}) }
+
+        if (checkboxFields.some((field) => field.key === 'mocActivity')) {
+          importedCustomFields.mocActivity = parsedComment.hasMoc ? 'true' : importedCustomFields.mocActivity || ''
+        }
+
+        parsedComment.checkboxLabels.forEach((label) => {
+          const matchingField = checkboxFieldMap.get(label.trim().toLowerCase())
+          if (matchingField) {
+            importedCustomFields[matchingField.key] = 'true'
+          }
+        })
+
+        activities.push({
+          ...importedActivity,
+          comments: parsedComment.commentBody,
+          customFields: importedCustomFields,
         })
       })
 

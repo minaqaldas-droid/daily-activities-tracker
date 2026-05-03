@@ -222,6 +222,45 @@ function getBaseDefinition(key: string) {
   return BASE_ACTIVITY_FIELD_DEFINITIONS.find((field) => field.key === key)
 }
 
+function hasExplicitActivityFieldSelection(definitions: StoredActivityFieldDefinition[]) {
+  if (definitions.length === 0) {
+    return false
+  }
+
+  const storedKeys = new Set(definitions.map((definition) => definition.key))
+  return BASE_ACTIVITY_FIELD_DEFINITIONS.every((field) => storedKeys.has(field.key))
+}
+
+function normalizeFieldDefinitionForUi(field: StoredActivityFieldDefinition, customIndex: number): ActivityFieldDefinition {
+  const baseDefinition = getBaseDefinition(field.key)
+
+  if (baseDefinition) {
+    return {
+      ...baseDefinition,
+      label: field.label || baseDefinition.label,
+      placeholder: field.placeholder || baseDefinition.placeholder,
+      type: field.key === 'performer' ? 'text' : field.type || baseDefinition.type,
+      options: field.key === 'performer' ? [] : field.type === 'select' ? field.options || baseDefinition.options || [] : baseDefinition.options,
+      searchable: field.searchable ?? baseDefinition.searchable,
+      tableBadge: field.tableBadge ?? baseDefinition.tableBadge,
+    }
+  }
+
+  return {
+    key: field.key,
+    label: field.label,
+    placeholder: field.placeholder || (field.type === 'checkbox' ? field.label : `Enter ${field.label.toLowerCase()}`),
+    type: field.type,
+    options: field.type === 'select' ? field.options || [] : [],
+    defaultEnabled: true,
+    defaultRequired: false,
+    defaultOrder: BASE_ACTIVITY_FIELD_DEFINITIONS.length * 10 + 10 + customIndex * 10,
+    searchable: field.searchable !== false,
+    tableBadge: Boolean(field.tableBadge),
+    isCustom: true,
+  }
+}
+
 export function normalizeStoredActivityFieldDefinitions(value: unknown): StoredActivityFieldDefinition[] {
   if (!Array.isArray(value)) {
     return []
@@ -266,8 +305,22 @@ export function normalizeStoredActivityFieldDefinitions(value: unknown): StoredA
 
 export function getActivityFieldDefinitions(settings?: Settings | null) {
   const storedDefinitions = normalizeStoredActivityFieldDefinitions(settings?.activity_field_definitions)
+  const explicitFieldSelection = hasExplicitActivityFieldSelection(storedDefinitions)
   const overridesByKey = new Map(storedDefinitions.map((definition) => [definition.key, definition]))
   const customFieldStartOrder = BASE_ACTIVITY_FIELD_DEFINITIONS.length * 10 + 10
+
+  if (explicitFieldSelection) {
+    let customIndex = 0
+    return storedDefinitions
+      .filter((field) => !field.archived)
+      .map((field) => {
+        const normalizedField = normalizeFieldDefinitionForUi(field, customIndex)
+        if (normalizedField.isCustom) {
+          customIndex += 1
+        }
+        return normalizedField
+      })
+  }
 
   const baseDefinitions: ActivityFieldDefinition[] = []
   BASE_ACTIVITY_FIELD_DEFINITIONS.forEach((field) => {
@@ -402,12 +455,16 @@ export function setActivityFieldValue(activity: Activity, fieldKey: string, valu
   const normalizedValue = typeof value === 'boolean' ? (value ? 'true' : '') : value
 
   if (fieldKey === 'mocActivity') {
+    const nextCustomFields = { ...(activity.customFields || {}) }
+    if (normalizedValue) {
+      nextCustomFields.mocActivity = normalizedValue
+    } else {
+      delete nextCustomFields.mocActivity
+    }
+
     return {
       ...activity,
-      customFields: {
-        ...(activity.customFields || {}),
-        mocActivity: normalizedValue,
-      },
+      customFields: nextCustomFields,
     }
   }
 
@@ -418,11 +475,15 @@ export function setActivityFieldValue(activity: Activity, fieldKey: string, valu
     }
   }
 
+  const nextCustomFields = { ...(activity.customFields || {}) }
+  if (normalizedValue) {
+    nextCustomFields[fieldKey] = normalizedValue
+  } else {
+    delete nextCustomFields[fieldKey]
+  }
+
   return {
     ...activity,
-    customFields: {
-      ...(activity.customFields || {}),
-      [fieldKey]: normalizedValue,
-    },
+    customFields: nextCustomFields,
   }
 }

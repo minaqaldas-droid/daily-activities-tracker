@@ -35,23 +35,23 @@ function sortActivitiesByDateDescending(activities: Activity[]) {
   })
 }
 
-function buildExportRows(activities: Activity[], systemFieldLabel: string, settings?: Settings) {
+function getExcelColumnWidth(fieldKey: string) {
+  if (fieldKey === 'date') return { wch: 12 }
+  if (fieldKey === 'performer') return { wch: 18 }
+  if (fieldKey === 'system' || fieldKey === 'shift' || fieldKey === 'activityType') return { wch: 14 }
+  if (fieldKey === 'permitNumber' || fieldKey === 'instrumentType' || fieldKey === 'tag') return { wch: 16 }
+  return { wch: 30 }
+}
+
+function buildExportRows(activities: Activity[], settings?: Settings) {
   const enabledActivityFields = getEnabledActivityFields(settings).filter((field) => field.type !== 'checkbox')
 
-  return sortActivitiesByDateDescending(activities).map((activity) => ({
-    Date: formatExcelDate(activity.date),
-    Performer: activity.performer,
-    'Activity Type': activity.activityType || '',
-    [systemFieldLabel]: activity.system,
-    ...enabledActivityFields.reduce<Record<string, string>>((acc, field) => {
-      acc[field.label] = getActivityFieldValue(activity, field.key)
+  return sortActivitiesByDateDescending(activities).map((activity) =>
+    enabledActivityFields.reduce<Record<string, string>>((acc, field) => {
+      acc[field.label] = field.key === 'date' ? formatExcelDate(activity.date) : getActivityFieldValue(activity, field.key)
       return acc
-    }, {}),
-    Tag: activity.tag,
-    Problem: activity.problem,
-    Action: activity.action,
-    Comments: activity.comments || '',
-  }))
+    }, {})
+  )
 }
 
 function formatExcelDate(value: string) {
@@ -122,18 +122,10 @@ export async function exportActivitiesToExcel(
   const XLSX = await import('xlsx')
   const enabledActivityFields = getEnabledActivityFields(options.settings).filter((field) => field.type !== 'checkbox')
 
-  const worksheet = XLSX.utils.json_to_sheet(
-    buildExportRows(activities, options.systemFieldLabel || 'System', options.settings)
-  )
+  const worksheet = XLSX.utils.json_to_sheet(buildExportRows(activities, options.settings))
   const workbook = XLSX.utils.book_new()
 
-  worksheet['!cols'] = enabledActivityFields.map((field) => {
-    if (field.key === 'date') return { wch: 12 }
-    if (field.key === 'performer') return { wch: 18 }
-    if (field.key === 'system' || field.key === 'shift' || field.key === 'activityType') return { wch: 14 }
-    if (field.key === 'permitNumber' || field.key === 'instrumentType' || field.key === 'tag') return { wch: 16 }
-    return { wch: 30 }
-  })
+  worksheet['!cols'] = enabledActivityFields.map((field) => getExcelColumnWidth(field.key))
 
   applyWorksheetFormatting(worksheet as Record<string, unknown>, XLSX)
 

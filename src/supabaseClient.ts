@@ -793,7 +793,7 @@ function getFormattedActivity(activity: Activity) {
     problem: activity.problem ?? '',
     action: activity.action ?? '',
     comments: activity.comments ?? '',
-    custom_fields: activity.customFields ?? {},
+    custom_fields: sanitizeCustomFields(activity.customFields),
     editedBy: activity.editedBy ?? null,
   }
 
@@ -810,6 +810,16 @@ function getFormattedActivity(activity: Activity) {
   }
 
   return formattedActivity
+}
+
+function sanitizeCustomFields(customFields: Activity['customFields'] | undefined) {
+  return Object.entries(customFields || {}).reduce<Record<string, string>>((accumulator, [key, value]) => {
+    const normalizedValue = String(value ?? '').trim()
+    if (normalizedValue) {
+      accumulator[key] = normalizedValue
+    }
+    return accumulator
+  }, {})
 }
 
 function normalizeActivity(activity: Partial<Activity>): Activity {
@@ -832,12 +842,14 @@ function normalizeActivity(activity: Partial<Activity>): Activity {
     problem: activity.problem ?? '',
     action: activity.action ?? '',
     comments: activity.comments ?? '',
-    customFields: Object.entries(databaseActivity.custom_fields || {}).reduce<Record<string, string>>(
-      (accumulator, [key, value]) => {
-        accumulator[key] = String(value ?? '')
-        return accumulator
-      },
-      {}
+    customFields: sanitizeCustomFields(
+      Object.entries(databaseActivity.custom_fields || {}).reduce<Record<string, string>>(
+        (accumulator, [key, value]) => {
+          accumulator[key] = String(value ?? '')
+          return accumulator
+        },
+        {}
+      )
     ),
     editedBy: activity.editedBy ?? null,
     created_at: activity.created_at,
@@ -859,7 +871,7 @@ function getActivityUpdatePayload(activity: Partial<Activity>) {
   if ('problem' in activity) payload.problem = activity.problem ?? ''
   if ('action' in activity) payload.action = activity.action ?? ''
   if ('comments' in activity) payload.comments = activity.comments ?? ''
-  if ('customFields' in activity) payload.custom_fields = activity.customFields ?? {}
+  if ('customFields' in activity) payload.custom_fields = sanitizeCustomFields(activity.customFields)
   if ('editedBy' in activity) payload.editedBy = activity.editedBy ?? null
   if ('edited_at' in activity) payload.edited_at = activity.edited_at ?? null
 

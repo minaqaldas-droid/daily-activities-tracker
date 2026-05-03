@@ -96,14 +96,22 @@ export const ActivityForm: React.FC<ActivityFormProps> = ({
       const parsedComment = parseCommentPrefixes(activity.comments)
       const checkboxFieldMap = new Map(checkboxFields.map((field) => [field.label.trim().toLowerCase(), field.key]))
       const nextCustomFields = { ...(activity.customFields || {}) }
-      nextCustomFields.mocActivity = parsedComment.hasMoc ? 'true' : String(nextCustomFields.mocActivity || '').toLowerCase() === 'true' ? 'true' : ''
+      if (parsedComment.hasMoc || String(nextCustomFields.mocActivity || '').toLowerCase() === 'true') {
+        nextCustomFields.mocActivity = 'true'
+      } else {
+        delete nextCustomFields.mocActivity
+      }
 
       checkboxFields.forEach((field) => {
         if (field.key === 'mocActivity') {
           return
         }
         const hasMatchingToken = parsedComment.checkboxLabels.some((label) => label.toLowerCase() === field.label.trim().toLowerCase())
-        nextCustomFields[field.key] = hasMatchingToken || String(nextCustomFields[field.key] || '').toLowerCase() === 'true' ? 'true' : ''
+        if (hasMatchingToken || String(nextCustomFields[field.key] || '').toLowerCase() === 'true') {
+          nextCustomFields[field.key] = 'true'
+        } else {
+          delete nextCustomFields[field.key]
+        }
       })
 
       parsedComment.checkboxLabels.forEach((label) => {
