@@ -11,7 +11,7 @@ describe('Excel import comment handling', () => {
       shift: 'A',
       permitNumber: '',
       instrumentType: '',
-      activityType: 'pm',
+      activityType: 'PM',
       tag: '920TT305',
       problem: 'Add H Alarm',
       action: 'Added H Alarm at 100C',

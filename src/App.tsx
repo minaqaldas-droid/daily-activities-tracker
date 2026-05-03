@@ -28,7 +28,8 @@ import {
 import { formatDateForDisplay } from './utils/date'
 import { getDashboardChartDefinitions } from './utils/dashboardCharts'
 import { matchesActivityKeyword } from './utils/activityKeywordSearch'
-import { readPersistedAppView, resolveAccessibleView, writePersistedAppView } from './utils/viewPreferences'
+import { getAppViewStorageKey, readPersistedAppView, resolveAccessibleView, writePersistedAppView } from './utils/viewPreferences'
+import { readPersistedActiveTeamId, writePersistedActiveTeamId } from './utils/teamPreferences'
 import {
   applyDashboardChartDisplayCountOverrides,
   readDashboardChartDisplayCountOverrides,
@@ -293,6 +294,9 @@ function App() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [dashboardChartDisplayCountOverrides, setDashboardChartDisplayCountOverrides] = useState<DashboardChartDisplayCountOverrides>({})
+  const restoredViewStorageKeyRef = useRef('')
+  const skipNextViewPreferenceWriteRef = useRef(false)
+  const hasRestoredActiveTeamRef = useRef(false)
 
   useEffect(() => {
     if (!currentUser) {
@@ -308,18 +312,35 @@ function App() {
       setResultsPopup(null)
       setIsMobileSidebarOpen(false)
       setDashboardChartDisplayCountOverrides({})
+      hasRestoredActiveTeamRef.current = false
       return
     }
 
     setActiveTeam((previousTeam) => {
       const availableTeams = currentUser.team_memberships?.map((membership) => membership.team) || []
       if (previousTeam && availableTeams.some((team) => team.id === previousTeam.id)) {
+        hasRestoredActiveTeamRef.current = true
         return previousTeam
       }
 
-      return currentUser.active_team || availableTeams[0] || null
+      const persistedTeamId = readPersistedActiveTeamId(currentUser.id)
+      const persistedTeam = persistedTeamId ? availableTeams.find((team) => team.id === persistedTeamId) : undefined
+      const activeProfileTeam = currentUser.active_team
+        ? availableTeams.find((team) => team.id === currentUser.active_team?.id) || currentUser.active_team
+        : undefined
+      hasRestoredActiveTeamRef.current = true
+
+      return persistedTeam || activeProfileTeam || availableTeams[0] || null
     })
   }, [currentUser, resetActivities, resetDashboardActivities])
+
+  useEffect(() => {
+    if (!appUser || !effectiveActiveTeam || !hasRestoredActiveTeamRef.current) {
+      return
+    }
+
+    writePersistedActiveTeamId(appUser.id, effectiveActiveTeam.id)
+  }, [appUser, effectiveActiveTeam?.id])
 
   useEffect(() => {
     if (!appUser) {
@@ -561,23 +582,30 @@ function App() {
 
   useEffect(() => {
     if (!appUser) {
+      restoredViewStorageKeyRef.current = ''
+      skipNextViewPreferenceWriteRef.current = false
       return
     }
 
-    const restoredView = readPersistedAppView(appUser.id, effectiveActiveTeam?.id || '')
+    const teamId = effectiveActiveTeam?.id || ''
+    const storageKey = getAppViewStorageKey(appUser.id, teamId)
+    const restoredView = readPersistedAppView(appUser.id, teamId)
+    restoredViewStorageKeyRef.current = storageKey
+
     if (!restoredView) {
       return
     }
 
-    setCurrentView(
-      resolveAccessibleView(restoredView, {
-        canViewDashboard,
-        canAddActivity,
-        canSearch,
-        canImport,
-        canExport,
-      })
-    )
+    const nextView = resolveAccessibleView(restoredView, {
+      canViewDashboard,
+      canAddActivity,
+      canSearch,
+      canImport,
+      canExport,
+    })
+
+    skipNextViewPreferenceWriteRef.current = true
+    setCurrentView(nextView)
   }, [appUser, canAddActivity, canExport, canImport, canSearch, canViewDashboard, effectiveActiveTeam?.id])
 
   useEffect(() => {
@@ -585,7 +613,19 @@ function App() {
       return
     }
 
-    writePersistedAppView(appUser.id, effectiveActiveTeam?.id || '', currentView)
+    const teamId = effectiveActiveTeam?.id || ''
+    const storageKey = getAppViewStorageKey(appUser.id, teamId)
+
+    if (restoredViewStorageKeyRef.current !== storageKey) {
+      return
+    }
+
+    if (skipNextViewPreferenceWriteRef.current) {
+      skipNextViewPreferenceWriteRef.current = false
+      return
+    }
+
+    writePersistedAppView(appUser.id, teamId, currentView)
   }, [appUser, currentView, effectiveActiveTeam?.id])
 
   const handleBackToTop = () => {
